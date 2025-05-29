@@ -3,8 +3,8 @@
 [profile.default]
     auto_detect_solc = false
     block_timestamp = 1_680_220_800 # March 31, 2023 at 00:00 GMT
-    bytecode_hash = "none"
-    cbor_metadata = false
+    # bytecode_hash = "none"
+    # cbor_metadata = false
     evm_version = "paris"
     gas_reports = [
         "PoolConfigurator",
@@ -62,7 +62,7 @@
 # arbitrum_one = { key = "${API_KEY_ARBISCAN}" }
 # avalanche = { key = "${API_KEY_SNOWTRACE}" }
 # bnb_smart_chain = { key = "${API_KEY_BSCSCAN}" }
-bsc-testnet = { key = "${API_KEY_ETHERSCAN}", url = "https://api-testnet.bscscan.com/api" }
+# bsc-testnet = { key = "${API_KEY_ETHERSCAN}", url = "https://api-testnet.bscscan.com/api" }
 # gnosis_chain = { key = "${API_KEY_GNOSISSCAN}" }
 # optimism = { key = "${API_KEY_OPTIMISTIC_ETHERSCAN}" }
 # polygon = { key = "${API_KEY_POLYGONSCAN}" }

@@ -5,6 +5,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import { IHRC719 } from "@hedera-forking/IHRC719.sol";
 
 import { Errors } from "./libraries/Errors.sol";
 import { VersionedInitializable } from "./libraries/upgradability/VersionedInitializable.sol";
@@ -55,6 +56,7 @@ contract LoanManager is
             revert Errors.LoanManager_AssetZeroAddress();
         }
         __ReentrancyGuard_init();
+        IHRC719(asset_).associate();
         emit Initialized({ poolAddressesProvider_: address(ADDRESSES_PROVIDER), asset_: asset = asset_ });
     }
 

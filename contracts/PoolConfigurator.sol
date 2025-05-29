@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IHRC719 } from "@hedera-forking/IHRC719.sol";
 
 import { Errors } from "./libraries/Errors.sol";
 import { VersionedInitializable } from "./libraries/upgradability/VersionedInitializable.sol";
@@ -100,6 +101,8 @@ contract PoolConfigurator is VersionedInitializable, IPoolConfigurator, PoolConf
         if (asset_ == address(0) || !globals_.isPoolAsset(asset_)) {
             revert Errors.PoolConfigurator_InvalidPoolAsset(asset_);
         }
+
+        IHRC719(asset_).associate();
 
         /* Effects */
         address pool_ =

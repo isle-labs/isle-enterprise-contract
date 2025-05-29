@@ -4,3 +4,4 @@
 @openzeppelin/contracts/=modules/openzeppelin-contracts/contracts/
 @openzeppelin/contracts-upgradeable/=modules/openzeppelin-contracts-upgradeable/contracts/
 solarray/=modules/solarray/src/
+@hedera-forking/=modules/hedera-forking/contracts

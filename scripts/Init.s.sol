@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import { Solarray } from "solarray/Solarray.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import { Hsc } from "@hedera-forking/Hsc.sol";
 
 import { Receivable, Loan } from "../contracts/libraries/types/DataTypes.sol";
 
@@ -11,7 +12,6 @@ import { IPoolAddressesProvider } from "../contracts/interfaces/IPoolAddressesPr
 import { IReceivable } from "../contracts/interfaces/IReceivable.sol";
 import { IPoolConfigurator } from "../contracts/interfaces/IPoolConfigurator.sol";
 import { ILoanManager } from "../contracts/interfaces/ILoanManager.sol";
-import { IIsleGlobals } from "../contracts/interfaces/IIsleGlobals.sol";
 import { IPool } from "../contracts/interfaces/IPool.sol";
 
 import { IERC20Mint } from "./contracts/ERC20Mint.sol";
@@ -20,6 +20,8 @@ import { BaseScript } from "./Base.s.sol";
 /// @notice Initializes the pool with deposits and loans.
 contract Init is BaseScript {
     function run(IReceivable receivable_, IPoolAddressesProvider poolAddressesProvider_) public {
+        Hsc.htsSetup();
+
         IPoolConfigurator poolConfigurator_ = IPoolConfigurator(poolAddressesProvider_.getPoolConfigurator());
         IPool pool_ = IPool(poolConfigurator_.pool());
         ILoanManager loanManager_ = ILoanManager(poolAddressesProvider_.getLoanManager());
@@ -36,29 +38,29 @@ contract Init is BaseScript {
         withdrawFunds(loanManager_, loanIds_, loanIds_.length - 2);
     }
 
+    function initPoolWithGovernor(IPoolConfigurator poolConfigurator_) internal broadcast(governor) {
+        poolConfigurator_.setPoolLimit(300_000e6);
+        poolConfigurator_.setMinCover(100e6);
+    }
+
     function initPoolWithPoolAdmin(IPoolConfigurator poolConfigurator_) internal broadcast(poolAdmin) {
-        poolConfigurator_.setAdminFee(0.1e6);
+        poolConfigurator_.setAdminFee(0);
         poolConfigurator_.setBuyer(buyer);
         poolConfigurator_.setValidSeller(seller, true);
         poolConfigurator_.setOpenToPublic(true);
 
         address asset_ = poolConfigurator_.asset();
-        IERC20Mint(asset_).mint({ beneficiary: poolAdmin, amount: 100e18 });
-        IERC20(asset_).approve({ spender: address(poolConfigurator_), amount: 100e18 });
-        poolConfigurator_.depositCover(100e18);
-    }
-
-    function initPoolWithGovernor(IPoolConfigurator poolConfigurator_) internal broadcast(governor) {
-        poolConfigurator_.setPoolLimit(100_000_000e18);
-        poolConfigurator_.setMinCover(10e18);
+        // IERC20Mint(asset_).mint({ beneficiary: poolAdmin, amount: 1000e18 });
+        IERC20(asset_).approve({ spender: address(poolConfigurator_), amount: 100e6 });
+        poolConfigurator_.depositCover(100e6);
     }
 
     function deposit(IPool pool_) internal broadcast(lender) {
         address asset_ = pool_.asset();
-        uint256 amount_ = 1_000_000e18;
+        uint256 amount_ = 300e6;
 
         // Mint 10k assets to the sender.
-        IERC20Mint(asset_).mint({ beneficiary: lender, amount: amount_ });
+        // IERC20Mint(asset_).mint({ beneficiary: lender, amount: amount_ });
         IERC20(asset_).approve({ spender: address(pool_), amount: amount_ });
 
         // Deposit all 10k assets in the pool.
@@ -70,7 +72,7 @@ contract Init is BaseScript {
 
     function initReceivables(IReceivable receivable_) internal broadcast(buyer) returns (uint256[] memory tokenIds_) {
         uint256[] memory totalAmounts_ =
-            Solarray.uint256s(0.1e18, 1e18, 100e18, 1000e18, 5000e18, 25_000e18, 100_000e18);
+            Solarray.uint256s(1e6, 10e6, 20e6, 40e6, 80e6, 100e6, 120e6);
         uint256[] memory totalDurations_ =
             Solarray.uint256s(4 weeks, 8 weeks, 12 weeks, 16 weeks, 6 weeks, 20 weeks, 24 weeks);
         tokenIds_ = new uint256[](totalAmounts_.length);
@@ -142,5 +144,37 @@ contract Init is BaseScript {
 
             loanManager_.withdrawFunds({ loanId_: loanIds_[i], destination_: seller });
         }
+    }
+
+    function associateAccount(address asset_) external {
+        Hsc.htsSetup();
+
+        vm.startBroadcast(deployer);
+        IHRC719(asset_).associate();
+        vm.stopBroadcast();
+
+        vm.startBroadcast(governor);
+        IHRC719(asset_).associate();
+        vm.stopBroadcast();
+
+        vm.startBroadcast(poolAdmin);
+        IHRC719(asset_).associate();
+        vm.stopBroadcast();
+
+        vm.startBroadcast(buyer);
+        IHRC719(asset_).associate();
+        vm.stopBroadcast();
+
+        vm.startBroadcast(seller);
+        IHRC719(asset_).associate();
+        vm.stopBroadcast();
+
+        vm.startBroadcast(lender);
+        IHRC719(asset_).associate();
+        vm.stopBroadcast();
+
+        vm.startBroadcast(vault);
+        IHRC719(asset_).associate();
+        vm.stopBroadcast();
     }
 }

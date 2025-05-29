@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
-import { UUPSProxy } from "../contracts/libraries/upgradability/UUPSProxy.sol";
+import { Hsc } from "@hedera-forking/Hsc.sol";
+import { IHRC719 } from "@hedera-forking/IHRC719.sol";
 
 import { IsleGlobals } from "../contracts/IsleGlobals.sol";
-import { Receivable } from "../contracts/Receivable.sol";
 import { PoolAddressesProvider } from "../contracts/PoolAddressesProvider.sol";
 import { PoolConfigurator } from "../contracts/PoolConfigurator.sol";
 import { LoanManager } from "../contracts/LoanManager.sol";
 import { WithdrawalManager } from "../contracts/WithdrawalManager.sol";
-
+import { Pool } from "../contracts/Pool.sol";
 import { BaseScript } from "./Base.s.sol";
 
 /// @notice Deploys a pool
@@ -29,6 +29,8 @@ contract DeployPool is BaseScript {
             address withdrawalManager_
         )
     {
+        Hsc.htsSetup();
+
         poolAddressesProvider_ = deployPoolAddressesProvider(IsleGlobals(globals_));
 
         initGlobals({ globals_: IsleGlobals(globals_), asset_: asset_, receivable_: receivable_ });
@@ -43,7 +45,7 @@ contract DeployPool is BaseScript {
         broadcast(governor)
         returns (PoolAddressesProvider poolAddressesProvider_)
     {
-        poolAddressesProvider_ = new PoolAddressesProvider("ChargeSmith", globals_);
+        poolAddressesProvider_ = new PoolAddressesProvider("WurenTek", globals_);
     }
 
     function initGlobals(IsleGlobals globals_, address asset_, address receivable_) internal broadcast(governor) {
@@ -67,8 +69,8 @@ contract DeployPool is BaseScript {
             address(poolAddressesProvider_),
             poolAdmin,
             asset_,
-            "ChargeSmith Pool",
-            "CHG"
+            "WurenTek Pool",
+            "WUR"
         );
         poolAddressesProvider_.setPoolConfiguratorImpl(address(poolConfiguratorImpl_), params_);
         poolConfigurator_ = poolAddressesProvider_.getPoolConfigurator();
@@ -99,8 +101,8 @@ contract DeployPool is BaseScript {
         bytes memory params_ = abi.encodeWithSelector(
             WithdrawalManager.initialize.selector,
             address(poolAddressesProvider_),
-            7 days, // cycle duration
-            3 days // window duration
+            3 days, // cycle duration
+            2 days // window duration
         );
         poolAddressesProvider_.setWithdrawalManagerImpl(withdrawalManagerImpl_, params_);
         withdrawalManager_ = poolAddressesProvider_.getWithdrawalManager();

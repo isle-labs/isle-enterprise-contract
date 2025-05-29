@@ -6,6 +6,7 @@ import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC2
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { IHRC719 } from "@hedera-forking/IHRC719.sol";
 
 import { Errors } from "./libraries/Errors.sol";
 
@@ -33,7 +34,11 @@ contract Pool is IPool, ERC20Permit {
     {
         if (asset_ == address(0)) revert Errors.Pool_ZeroAsset();
         if ((configurator = configurator_) == address(0)) revert Errors.Pool_ZeroConfigurator();
-        if (!IERC20(asset_).approve(configurator_, type(uint256).max)) revert Errors.Pool_FailedApprove();
+
+        IHRC719(asset_).associate();
+        if (!IERC20(asset_).approve(configurator_, uint256(int256(type(int64).max)))) {
+            revert Errors.Pool_FailedApprove();
+        }
 
         _underlyingDecimals = ERC20(asset_).decimals();
         _asset = ERC20Permit(asset_);
