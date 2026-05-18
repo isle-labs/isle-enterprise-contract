@@ -3,8 +3,9 @@ pragma solidity 0.8.19;
 
 import { Errors } from "contracts/libraries/Errors.sol";
 
-import { PoolAddressesProvider_Unit_Shared_Test } from
-    "../../../shared/pool-addresses-provider/PoolAddressesProvider.t.sol";
+import {
+    PoolAddressesProvider_Unit_Shared_Test
+} from "../../../shared/pool-addresses-provider/PoolAddressesProvider.t.sol";
 
 contract SetWithdrawalManagerImpl_PoolAddressesProvider_Unit_Concrete_Test is PoolAddressesProvider_Unit_Shared_Test {
     function setUp() public virtual override(PoolAddressesProvider_Unit_Shared_Test) {

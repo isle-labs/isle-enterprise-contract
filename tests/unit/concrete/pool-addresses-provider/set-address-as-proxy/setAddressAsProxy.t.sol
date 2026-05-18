@@ -5,8 +5,9 @@ import { Errors } from "contracts/libraries/Errors.sol";
 
 import { MockImplementation } from "../../../../mocks/MockImplementation.sol";
 
-import { PoolAddressesProvider_Unit_Shared_Test } from
-    "../../../shared/pool-addresses-provider/PoolAddressesProvider.t.sol";
+import {
+    PoolAddressesProvider_Unit_Shared_Test
+} from "../../../shared/pool-addresses-provider/PoolAddressesProvider.t.sol";
 
 contract SetAddressAsProxy_PoolAddressesProvider_Unit_Concrete_Test is PoolAddressesProvider_Unit_Shared_Test {
     function setUp() public virtual override(PoolAddressesProvider_Unit_Shared_Test) {
@@ -42,7 +43,9 @@ contract SetAddressAsProxy_PoolAddressesProvider_Unit_Concrete_Test is PoolAddre
         address initialImplementation_ = address(new MockImplementation());
 
         // Do first time setting implementation
-        poolAddressesProvider.setAddressAsProxy({ id: id_, newImplementationAddress: initialImplementation_, params: "" });
+        poolAddressesProvider.setAddressAsProxy({
+            id: id_, newImplementationAddress: initialImplementation_, params: ""
+        });
 
         address proxy_ = poolAddressesProvider.getAddress(id_);
         address upgradeImplementation_ = address(new MockImplementation());
@@ -55,6 +58,8 @@ contract SetAddressAsProxy_PoolAddressesProvider_Unit_Concrete_Test is PoolAddre
             newImplementationAddress: upgradeImplementation_
         });
         // Upgrade implementation
-        poolAddressesProvider.setAddressAsProxy({ id: id_, newImplementationAddress: upgradeImplementation_, params: "" });
+        poolAddressesProvider.setAddressAsProxy({
+            id: id_, newImplementationAddress: upgradeImplementation_, params: ""
+        });
     }
 }

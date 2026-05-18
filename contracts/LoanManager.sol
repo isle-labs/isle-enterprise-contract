@@ -200,8 +200,7 @@ contract LoanManager is
 
         if (principalRequested_ > receivableInfo_.faceAmount) {
             revert Errors.LoanManager_PrincipalRequestedTooHigh({
-                principalRequested_: principalRequested_,
-                maxPrincipal_: receivableInfo_.faceAmount
+                principalRequested_: principalRequested_, maxPrincipal_: receivableInfo_.faceAmount
             });
         }
 
@@ -250,12 +249,7 @@ contract LoanManager is
     }
 
     /// @inheritdoc ILoanManager
-    function repayLoan(uint16 loanId_)
-        external
-        override
-        whenNotPaused
-        returns (uint256 principal_, uint256 interest_)
-    {
+    function repayLoan(uint16 loanId_) external override whenNotPaused returns (uint256 principal_, uint256 interest_) {
         // 1. Advance global accounting
         //   - Update `domainStart` to the current `block.timestamp`
         //   - Update `accountedInterest` to account all accrued interest since last update
@@ -371,13 +365,7 @@ contract LoanManager is
     }
 
     /// @inheritdoc ILoanManager
-    function removeLoanImpairment(uint16 loanId_)
-        external
-        override
-        nonReentrant
-        whenNotPaused
-        onlyPoolAdminOrGovernor
-    {
+    function removeLoanImpairment(uint16 loanId_) external override nonReentrant whenNotPaused onlyPoolAdminOrGovernor {
         Loan.LiquidationInfo memory liquidationInfo_ = liquidationInfoFor[loanId_];
         Loan.Info memory loan_ = _loans[loanId_];
 
@@ -416,9 +404,7 @@ contract LoanManager is
 
         if (block.timestamp > originalDueDate_) {
             revert Errors.LoanManager_PastDueDate({
-                loanId_: loanId_,
-                dueDate_: originalDueDate_,
-                currentTimestamp_: block.timestamp
+                loanId_: loanId_, dueDate_: originalDueDate_, currentTimestamp_: block.timestamp
             });
         }
 

@@ -6,8 +6,9 @@ import { Errors } from "contracts/libraries/Errors.sol";
 import { PoolAddressesProvider } from "contracts/PoolAddressesProvider.sol";
 import { IsleGlobals } from "contracts/IsleGlobals.sol";
 
-import { PoolAddressesProvider_Unit_Shared_Test } from
-    "../../../shared/pool-addresses-provider/PoolAddressesProvider.t.sol";
+import {
+    PoolAddressesProvider_Unit_Shared_Test
+} from "../../../shared/pool-addresses-provider/PoolAddressesProvider.t.sol";
 
 contract Constructor_PoolAddressesProvider_Unit_Concrete_Test is PoolAddressesProvider_Unit_Shared_Test {
     modifier whenGovernorNotZeroAddress() {

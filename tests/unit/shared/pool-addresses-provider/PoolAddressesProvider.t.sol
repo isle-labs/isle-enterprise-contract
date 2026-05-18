@@ -84,9 +84,7 @@ abstract contract PoolAddressesProvider_Unit_Shared_Test is Base_Test {
 
     function setDefaultAddressAsProxy() internal {
         poolAddressesProvider.setAddressAsProxy({
-            id: _params.id,
-            newImplementationAddress: _params.newImplementationAddress,
-            params: ""
+            id: _params.id, newImplementationAddress: _params.newImplementationAddress, params: ""
         });
     }
 

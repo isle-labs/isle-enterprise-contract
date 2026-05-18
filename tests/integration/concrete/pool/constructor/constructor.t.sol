@@ -38,10 +38,7 @@ contract Constructor_Pool_Integration_Concrete_Test is Pool_Integration_Shared_T
 
     function test_Constructor() external whenAssetNotZeroAddress whenPoolConfiguratorNotZeroAddress {
         Pool pool = new Pool({
-            configurator_: address(poolConfigurator),
-            asset_: address(usdc),
-            name_: _name,
-            symbol_: _symbol
+            configurator_: address(poolConfigurator), asset_: address(usdc), name_: _name, symbol_: _symbol
         });
 
         assertEq(pool.configurator(), address(poolConfigurator), "configurator");
