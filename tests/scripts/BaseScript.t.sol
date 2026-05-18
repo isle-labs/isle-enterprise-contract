@@ -82,6 +82,10 @@ contract BaseScriptIOHarness is BaseScript {
     function exposed_appendMarket(MarketRecord memory rec) external {
         appendMarket(rec);
     }
+
+    function exposed_readExternal(string memory name) external view returns (address) {
+        return readExternal(name);
+    }
 }
 
 contract BaseScript_Singleton_Test is Test {
@@ -166,5 +170,38 @@ contract BaseScript_Market_Test is Test {
 
         vm.expectRevert();
         h.exposed_appendMarket(_sampleRecord("OnlyOne", 0xB000));
+    }
+}
+
+contract BaseScript_External_Test is Test {
+    function _newHarness(string memory fixtureName, string memory configBody) internal returns (BaseScriptIOHarness h) {
+        string memory deploymentPath = string.concat("tests/fixtures/", fixtureName, "_deploy.toml");
+        string memory configPath     = string.concat("tests/fixtures/", fixtureName, "_config.toml");
+        vm.writeFile(deploymentPath, "");
+        vm.writeFile(configPath, configBody);
+        vm.chainId(8453);  // base
+        h = new BaseScriptIOHarness(deploymentPath, configPath);
+    }
+
+    function test_readExternal_usdc() public {
+        string memory cfg = string.concat(
+            "[base]\n",
+            "USDC = \"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\"\n"
+        );
+        BaseScriptIOHarness h = _newHarness("external_usdc", cfg);
+        assertEq(
+            h.exposed_readExternal("USDC"),
+            0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+        );
+    }
+
+    function test_readExternal_missingKeyReverts() public {
+        string memory cfg = string.concat(
+            "[base]\n",
+            "USDC = \"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\"\n"
+        );
+        BaseScriptIOHarness h = _newHarness("external_missing", cfg);
+        vm.expectRevert();
+        h.exposed_readExternal("NoSuchExternal");
     }
 }

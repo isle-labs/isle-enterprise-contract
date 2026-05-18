@@ -100,6 +100,12 @@ abstract contract BaseScript is Script {
         return abi.decode(vm.parseToml(toml, key), (MarketRecord[]));
     }
 
+    function readExternal(string memory name) internal view returns (address) {
+        string memory toml = vm.readFile(_configPath());
+        string memory key  = string.concat(".", currentChain(), ".", name);
+        return vm.parseTomlAddress(toml, key);
+    }
+
     function _serializeMarketArray(MarketRecord[] memory recs) private returns (string memory) {
         string memory acc = "[";
         for (uint256 i = 0; i < recs.length; i++) {
