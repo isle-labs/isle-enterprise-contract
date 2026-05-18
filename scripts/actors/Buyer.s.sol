@@ -7,7 +7,7 @@ abstract contract BuyerActor is BaseScript {
     address internal buyer;
 
     constructor() {
-        buyer = _load();
+        buyer = _loadBuyer();
     }
 
     /// @dev Override in tests to supply a distinct env-var name and avoid cross-test contamination.
@@ -20,7 +20,7 @@ abstract contract BuyerActor is BaseScript {
         return "BUYER";
     }
 
-    function _load() private returns (address) {
+    function _loadBuyer() private returns (address) {
         uint256 key = vm.envOr(_buyerKeyEnvName(), uint256(0));
         if (key != 0) return vm.rememberKey(key);
 

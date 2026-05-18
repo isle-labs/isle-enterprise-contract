@@ -7,7 +7,7 @@ abstract contract DeployerActor is BaseScript {
     address internal deployer;
 
     constructor() {
-        deployer = _load();
+        deployer = _loadDeployer();
     }
 
     /// @dev Override in tests to supply a distinct env-var name and avoid cross-test contamination.
@@ -20,7 +20,7 @@ abstract contract DeployerActor is BaseScript {
         return "DEPLOYER";
     }
 
-    function _load() private returns (address) {
+    function _loadDeployer() private returns (address) {
         uint256 key = vm.envOr(_deployerKeyEnvName(), uint256(0));
         if (key != 0) return vm.rememberKey(key);
 

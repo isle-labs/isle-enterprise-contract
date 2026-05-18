@@ -7,7 +7,7 @@ abstract contract PoolAdminActor is BaseScript {
     address internal poolAdmin;
 
     constructor() {
-        poolAdmin = _load();
+        poolAdmin = _loadPoolAdmin();
     }
 
     /// @dev Override in tests to supply a distinct env-var name and avoid cross-test contamination.
@@ -20,7 +20,7 @@ abstract contract PoolAdminActor is BaseScript {
         return "POOL_ADMIN";
     }
 
-    function _load() private returns (address) {
+    function _loadPoolAdmin() private returns (address) {
         uint256 key = vm.envOr(_poolAdminKeyEnvName(), uint256(0));
         if (key != 0) return vm.rememberKey(key);
 

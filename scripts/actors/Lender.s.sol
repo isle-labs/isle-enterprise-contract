@@ -7,7 +7,7 @@ abstract contract LenderActor is BaseScript {
     address internal lender;
 
     constructor() {
-        lender = _load();
+        lender = _loadLender();
     }
 
     /// @dev Override in tests to supply a distinct env-var name and avoid cross-test contamination.
@@ -20,7 +20,7 @@ abstract contract LenderActor is BaseScript {
         return "LENDER";
     }
 
-    function _load() private returns (address) {
+    function _loadLender() private returns (address) {
         uint256 key = vm.envOr(_lenderKeyEnvName(), uint256(0));
         if (key != 0) return vm.rememberKey(key);
 

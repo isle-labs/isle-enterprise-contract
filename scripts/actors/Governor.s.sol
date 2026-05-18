@@ -7,7 +7,7 @@ abstract contract GovernorActor is BaseScript {
     address internal governor;
 
     constructor() {
-        governor = _load();
+        governor = _loadGovernor();
     }
 
     /// @dev Override in tests to supply a distinct env-var name and avoid cross-test contamination.
@@ -20,7 +20,7 @@ abstract contract GovernorActor is BaseScript {
         return "GOVERNOR";
     }
 
-    function _load() private returns (address) {
+    function _loadGovernor() private returns (address) {
         uint256 key = vm.envOr(_governorKeyEnvName(), uint256(0));
         if (key != 0) return vm.rememberKey(key);
 

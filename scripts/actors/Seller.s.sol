@@ -7,7 +7,7 @@ abstract contract SellerActor is BaseScript {
     address internal seller;
 
     constructor() {
-        seller = _load();
+        seller = _loadSeller();
     }
 
     /// @dev Override in tests to supply a distinct env-var name and avoid cross-test contamination.
@@ -20,7 +20,7 @@ abstract contract SellerActor is BaseScript {
         return "SELLER";
     }
 
-    function _load() private returns (address) {
+    function _loadSeller() private returns (address) {
         uint256 key = vm.envOr(_sellerKeyEnvName(), uint256(0));
         if (key != 0) return vm.rememberKey(key);
 
