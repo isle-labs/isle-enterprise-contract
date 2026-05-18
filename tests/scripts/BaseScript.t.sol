@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import { Test } from "@forge-std/Test.sol";
 
-import { BaseScript } from "scripts/Base.s.sol";
+import { BaseScript, MarketRecord } from "scripts/Base.s.sol";
 
 contract BaseScriptHarness is BaseScript {
     function exposed_currentChain() external view returns (string memory) {
@@ -74,6 +74,14 @@ contract BaseScriptIOHarness is BaseScript {
     function exposed_writeSingleton(string memory name, address addr) external {
         writeSingleton(name, addr);
     }
+
+    function exposed_readMarket(string memory name) external view returns (MarketRecord memory) {
+        return readMarket(name);
+    }
+
+    function exposed_appendMarket(MarketRecord memory rec) external {
+        appendMarket(rec);
+    }
 }
 
 contract BaseScript_Singleton_Test is Test {
@@ -101,5 +109,54 @@ contract BaseScript_Singleton_Test is Test {
         h.exposed_writeSingleton("IsleGlobals", address(0xAAAA));
         h.exposed_writeSingleton("IsleGlobals", address(0xBBBB));
         assertEq(h.exposed_readSingleton("IsleGlobals"), address(0xBBBB));
+    }
+}
+
+contract BaseScript_Market_Test is Test {
+    function _newHarness(string memory fixtureName) internal returns (BaseScriptIOHarness h) {
+        string memory path = string.concat("tests/fixtures/", fixtureName, ".toml");
+        vm.writeFile(path, "");
+        vm.chainId(84_532);
+        h = new BaseScriptIOHarness(path, "scripts/config.toml");
+    }
+
+    function _sampleRecord(string memory name, uint160 base) internal pure returns (MarketRecord memory r) {
+        r.name                  = name;
+        r.LoanManager           = address(base + 1);
+        r.Pool                  = address(base + 2);
+        r.PoolAddressesProvider = address(base + 3);
+        r.PoolConfigurator      = address(base + 4);
+        r.WithdrawalManager     = address(base + 5);
+    }
+
+    function test_appendAndReadOneMarket() public {
+        BaseScriptIOHarness h = _newHarness("market_one");
+        MarketRecord memory rec = _sampleRecord("ChargeSmith", 0xA000);
+        h.exposed_appendMarket(rec);
+
+        MarketRecord memory got = h.exposed_readMarket("ChargeSmith");
+        assertEq(got.name, "ChargeSmith");
+        assertEq(got.LoanManager,           address(uint160(0xA000) + 1));
+        assertEq(got.Pool,                  address(uint160(0xA000) + 2));
+        assertEq(got.PoolAddressesProvider, address(uint160(0xA000) + 3));
+        assertEq(got.PoolConfigurator,      address(uint160(0xA000) + 4));
+        assertEq(got.WithdrawalManager,     address(uint160(0xA000) + 5));
+    }
+
+    function test_appendTwoMarketsAndReadEach() public {
+        BaseScriptIOHarness h = _newHarness("market_two");
+        h.exposed_appendMarket(_sampleRecord("First",  0xA000));
+        h.exposed_appendMarket(_sampleRecord("Second", 0xB000));
+
+        assertEq(h.exposed_readMarket("First").Pool,  address(uint160(0xA000) + 2));
+        assertEq(h.exposed_readMarket("Second").Pool, address(uint160(0xB000) + 2));
+    }
+
+    function test_readMarket_missingReverts() public {
+        BaseScriptIOHarness h = _newHarness("market_missing");
+        h.exposed_appendMarket(_sampleRecord("Only", 0xA000));
+
+        vm.expectRevert();
+        h.exposed_readMarket("DoesNotExist");
     }
 }
