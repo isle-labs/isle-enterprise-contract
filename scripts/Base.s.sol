@@ -64,6 +64,13 @@ abstract contract BaseScript is Script {
     function appendMarket(MarketRecord memory rec) internal {
         MarketRecord[] memory existing = _readMarketsOrEmpty();
 
+        for (uint256 i = 0; i < existing.length; i++) {
+            require(
+                keccak256(bytes(existing[i].name)) != keccak256(bytes(rec.name)),
+                string.concat("BaseScript: market already exists on ", currentChain(), ": ", rec.name)
+            );
+        }
+
         MarketRecord[] memory next = new MarketRecord[](existing.length + 1);
         for (uint256 i = 0; i < existing.length; i++) {
             next[i] = existing[i];

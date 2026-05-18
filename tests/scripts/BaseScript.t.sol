@@ -159,4 +159,12 @@ contract BaseScript_Market_Test is Test {
         vm.expectRevert();
         h.exposed_readMarket("DoesNotExist");
     }
+
+    function test_appendMarket_duplicateNameReverts() public {
+        BaseScriptIOHarness h = _newHarness("market_duplicate");
+        h.exposed_appendMarket(_sampleRecord("OnlyOne", 0xA000));
+
+        vm.expectRevert();
+        h.exposed_appendMarket(_sampleRecord("OnlyOne", 0xB000));
+    }
 }
