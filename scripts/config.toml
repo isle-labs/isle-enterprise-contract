@@ -1,0 +1,5 @@
+# External addresses referenced (but not deployed) by deployment scripts.
+# Human-authored. Update when adding a new chain or external dependency.
+
+[base]
+USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
