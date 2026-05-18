@@ -1,0 +1,20 @@
+{
+  "modules/forge-std": {
+    "rev": "74cfb77e308dd188d2f58864aaf44963ae6b88b1"
+  },
+  "modules/openzeppelin-contracts": {
+    "rev": "e50c24f5839db17f46991478384bfda14acfb830"
+  },
+  "modules/openzeppelin-contracts-upgradeable": {
+    "rev": "bc95521e34dcd49792065e264a7ad2b5a86f0091"
+  },
+  "modules/prb-math": {
+    "rev": "77fa88eda4a4a91b3f3e9431df291292c26b6c71"
+  },
+  "modules/prb-test": {
+    "rev": "1e9ead2f7bfaedda3038081c16484b0d7d0b2712"
+  },
+  "modules/solarray": {
+    "rev": "0625e7e4369eb299753fcb90a3cd7ffb91e1b5bc"
+  }
+}
