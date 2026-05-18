@@ -120,4 +120,24 @@ abstract contract BaseScript is Script {
         }
         return string.concat(acc, "]");
     }
+
+    function promptAddress(string memory label) internal returns (address) {
+        return vm.parseAddress(vm.prompt(label));
+    }
+
+    function promptUint(string memory label) internal returns (uint256) {
+        return vm.parseUint(vm.prompt(label));
+    }
+
+    function promptString(string memory label) internal returns (string memory) {
+        return vm.prompt(label);
+    }
+
+    function promptBool(string memory label) internal returns (bool) {
+        return vm.parseBool(vm.prompt(label));
+    }
+
+    function promptMarket() internal returns (MarketRecord memory) {
+        return readMarket(promptString("Market name"));
+    }
 }
