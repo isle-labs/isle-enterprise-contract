@@ -11,12 +11,12 @@ abstract contract GovernorActor is BaseScript {
     }
 
     /// @dev Override in tests to supply a distinct env-var name and avoid cross-test contamination.
-    function _governorKeyEnvName() internal virtual returns (string memory) {
+    function _governorKeyEnvName() internal pure virtual returns (string memory) {
         return "GOVERNOR_KEY";
     }
 
     /// @dev Override in tests to supply a distinct env-var name and avoid cross-test contamination.
-    function _governorAddressEnvName() internal virtual returns (string memory) {
+    function _governorAddressEnvName() internal pure virtual returns (string memory) {
         return "GOVERNOR";
     }
 

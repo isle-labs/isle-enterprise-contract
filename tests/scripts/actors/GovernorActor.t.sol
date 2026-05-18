@@ -14,8 +14,12 @@ import { GovernorActor } from "scripts/actors/Governor.s.sol";
 // ---------------------------------------------------------------------------
 
 contract GovernorHarness_Key is GovernorActor {
-    function _governorKeyEnvName() internal virtual override returns (string memory) {
-        return "GOVERNOR_KEY_TEST_KEY";
+    function _governorKeyEnvName() internal pure override returns (string memory) {
+        return "GOV_KEY_test_key";
+    }
+
+    function _governorAddressEnvName() internal pure override returns (string memory) {
+        return "GOV_ADDR_test_key";
     }
 
     function exposed_governor() external view returns (address) {
@@ -24,12 +28,12 @@ contract GovernorHarness_Key is GovernorActor {
 }
 
 contract GovernorHarness_Addr is GovernorActor {
-    function _governorKeyEnvName() internal virtual override returns (string memory) {
-        return "GOVERNOR_KEY_TEST_ADDR";
+    function _governorKeyEnvName() internal pure override returns (string memory) {
+        return "GOV_KEY_test_addr";
     }
 
-    function _governorAddressEnvName() internal virtual override returns (string memory) {
-        return "GOVERNOR_TEST_ADDR";
+    function _governorAddressEnvName() internal pure override returns (string memory) {
+        return "GOV_ADDR_test_addr";
     }
 
     function exposed_governor() external view returns (address) {
@@ -38,12 +42,12 @@ contract GovernorHarness_Addr is GovernorActor {
 }
 
 contract GovernorHarness_Mnemonic is GovernorActor {
-    function _governorKeyEnvName() internal virtual override returns (string memory) {
-        return "GOVERNOR_KEY_TEST_MNEMONIC";
+    function _governorKeyEnvName() internal pure override returns (string memory) {
+        return "GOV_KEY_test_mnemonic";
     }
 
-    function _governorAddressEnvName() internal virtual override returns (string memory) {
-        return "GOVERNOR_TEST_MNEMONIC";
+    function _governorAddressEnvName() internal pure override returns (string memory) {
+        return "GOV_ADDR_test_mnemonic";
     }
 
     function exposed_governor() external view returns (address) {
@@ -57,23 +61,23 @@ contract GovernorActor_Test is Test {
     address internal constant TEST_ADDR_FROM_KEY = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
     function test_loadsFromGovernorKey() public {
-        vm.setEnv("GOVERNOR_KEY_TEST_KEY", vm.toString(TEST_KEY));
+        vm.setEnv("GOV_KEY_test_key", vm.toString(TEST_KEY));
 
         GovernorHarness_Key h = new GovernorHarness_Key();
         assertEq(h.exposed_governor(), TEST_ADDR_FROM_KEY);
     }
 
     function test_loadsFromGovernorAddress() public {
-        vm.setEnv("GOVERNOR_KEY_TEST_ADDR", "0");
-        vm.setEnv("GOVERNOR_TEST_ADDR", "0x1234567890123456789012345678901234567890");
+        vm.setEnv("GOV_KEY_test_addr", "0");
+        vm.setEnv("GOV_ADDR_test_addr", "0x1234567890123456789012345678901234567890");
 
         GovernorHarness_Addr h = new GovernorHarness_Addr();
         assertEq(h.exposed_governor(), 0x1234567890123456789012345678901234567890);
     }
 
     function test_loadsFromMnemonicWhenNoEnvSet() public {
-        vm.setEnv("GOVERNOR_KEY_TEST_MNEMONIC", "0");
-        vm.setEnv("GOVERNOR_TEST_MNEMONIC", vm.toString(address(0)));
+        vm.setEnv("GOV_KEY_test_mnemonic", "0");
+        vm.setEnv("GOV_ADDR_test_mnemonic", vm.toString(address(0)));
 
         // Default test mnemonic, index 0 -> Anvil account 0
         GovernorHarness_Mnemonic h = new GovernorHarness_Mnemonic();
