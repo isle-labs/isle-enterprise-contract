@@ -121,6 +121,37 @@ abstract contract BaseScript is Script {
         return string.concat(acc, "]");
     }
 
+    function patchMarketField(
+        string memory marketName,
+        string memory fieldName,
+        address       newValue
+    ) internal {
+        MarketRecord[] memory markets = _readMarketsOrEmpty();
+
+        bool found;
+        for (uint256 i = 0; i < markets.length; i++) {
+            if (keccak256(bytes(markets[i].name)) == keccak256(bytes(marketName))) {
+                _setField(markets[i], fieldName, newValue);
+                found = true;
+                break;
+            }
+        }
+        require(found, string.concat("BaseScript: patch target market missing: ", marketName));
+
+        string memory key = string.concat(".", currentChain(), ".markets");
+        vm.writeToml(_serializeMarketArray(markets), _deploymentPath(), key);
+    }
+
+    function _setField(MarketRecord memory rec, string memory fieldName, address v) private pure {
+        bytes32 f = keccak256(bytes(fieldName));
+        if (f == keccak256("LoanManager"))                rec.LoanManager           = v;
+        else if (f == keccak256("Pool"))                  rec.Pool                  = v;
+        else if (f == keccak256("PoolAddressesProvider")) rec.PoolAddressesProvider = v;
+        else if (f == keccak256("PoolConfigurator"))      rec.PoolConfigurator      = v;
+        else if (f == keccak256("WithdrawalManager"))     rec.WithdrawalManager     = v;
+        else revert(string.concat("BaseScript: unknown market field: ", fieldName));
+    }
+
     function promptAddress(string memory label) internal returns (address) {
         return vm.parseAddress(vm.prompt(label));
     }

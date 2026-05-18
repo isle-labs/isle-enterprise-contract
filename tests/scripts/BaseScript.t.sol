@@ -86,6 +86,14 @@ contract BaseScriptIOHarness is BaseScript {
     function exposed_readExternal(string memory name) external view returns (address) {
         return readExternal(name);
     }
+
+    function exposed_patchMarketField(
+        string memory marketName,
+        string memory fieldName,
+        address       newValue
+    ) external {
+        patchMarketField(marketName, fieldName, newValue);
+    }
 }
 
 contract BaseScript_Singleton_Test is Test {
@@ -203,5 +211,49 @@ contract BaseScript_External_Test is Test {
         BaseScriptIOHarness h = _newHarness("external_missing", cfg);
         vm.expectRevert();
         h.exposed_readExternal("NoSuchExternal");
+    }
+}
+
+contract BaseScript_PatchMarket_Test is Test {
+    function _newHarness(string memory fixtureName) internal returns (BaseScriptIOHarness h) {
+        string memory path = string.concat("tests/fixtures/", fixtureName, ".toml");
+        vm.writeFile(path, "");
+        vm.chainId(84_532);
+        h = new BaseScriptIOHarness(path, "scripts/config.toml");
+
+        // Seed one market with placeholder zeros, only PoolAddressesProvider filled.
+        h.exposed_appendMarket(MarketRecord({
+            LoanManager:           address(0),
+            Pool:                  address(0),
+            PoolAddressesProvider: address(0xDEAD),
+            PoolConfigurator:      address(0),
+            WithdrawalManager:     address(0),
+            name:                  "Demo"
+        }));
+    }
+
+    function test_patchPoolConfigurator() public {
+        BaseScriptIOHarness h = _newHarness("patch_configurator");
+        h.exposed_patchMarketField("Demo", "PoolConfigurator", address(0xC0DE));
+        assertEq(h.exposed_readMarket("Demo").PoolConfigurator, address(0xC0DE));
+        assertEq(h.exposed_readMarket("Demo").PoolAddressesProvider, address(0xDEAD));
+    }
+
+    function test_patchLoanManager() public {
+        BaseScriptIOHarness h = _newHarness("patch_loanmgr");
+        h.exposed_patchMarketField("Demo", "LoanManager", address(0xBEEF));
+        assertEq(h.exposed_readMarket("Demo").LoanManager, address(0xBEEF));
+    }
+
+    function test_patchUnknownFieldReverts() public {
+        BaseScriptIOHarness h = _newHarness("patch_unknownfield");
+        vm.expectRevert();
+        h.exposed_patchMarketField("Demo", "NotARealField", address(0x1));
+    }
+
+    function test_patchUnknownMarketReverts() public {
+        BaseScriptIOHarness h = _newHarness("patch_unknownmarket");
+        vm.expectRevert();
+        h.exposed_patchMarketField("Ghost", "Pool", address(0x1));
     }
 }
