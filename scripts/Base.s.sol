@@ -27,4 +27,23 @@ abstract contract BaseScript is Script {
         if (id == 31_337)     return "anvil";
         revert(string.concat("BaseScript: unmapped chainid ", vm.toString(id)));
     }
+
+    function _deploymentPath() internal view virtual returns (string memory) {
+        return DEPLOYMENT_PATH;
+    }
+
+    function _configPath() internal view virtual returns (string memory) {
+        return CONFIG_PATH;
+    }
+
+    function readSingleton(string memory name) internal view returns (address) {
+        string memory toml = vm.readFile(_deploymentPath());
+        string memory key  = string.concat(".", currentChain(), ".", name);
+        return vm.parseTomlAddress(toml, key);
+    }
+
+    function writeSingleton(string memory name, address addr) internal {
+        string memory key = string.concat(".", currentChain(), ".", name);
+        vm.writeToml(vm.toString(addr), _deploymentPath(), key);
+    }
 }

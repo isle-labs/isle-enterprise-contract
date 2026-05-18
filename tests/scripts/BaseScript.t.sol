@@ -49,3 +49,57 @@ contract BaseScript_CurrentChain_Test is Test {
         harness.exposed_currentChain();
     }
 }
+
+contract BaseScriptIOHarness is BaseScript {
+    string private _dpath;
+    string private _cpath;
+
+    constructor(string memory d, string memory c) {
+        _dpath = d;
+        _cpath = c;
+    }
+
+    function _deploymentPath() internal view override returns (string memory) {
+        return _dpath;
+    }
+
+    function _configPath() internal view override returns (string memory) {
+        return _cpath;
+    }
+
+    function exposed_readSingleton(string memory name) external view returns (address) {
+        return readSingleton(name);
+    }
+
+    function exposed_writeSingleton(string memory name, address addr) external {
+        writeSingleton(name, addr);
+    }
+}
+
+contract BaseScript_Singleton_Test is Test {
+    function _newHarness(string memory fixtureName) internal returns (BaseScriptIOHarness h) {
+        string memory path = string.concat("tests/fixtures/", fixtureName, ".toml");
+        vm.writeFile(path, "");
+        vm.chainId(84_532);
+        h = new BaseScriptIOHarness(path, "scripts/config.toml");
+    }
+
+    function test_writeAndReadSingleton() public {
+        BaseScriptIOHarness h = _newHarness("singleton_write_read");
+        h.exposed_writeSingleton("IsleGlobals", address(0xABCD));
+        assertEq(h.exposed_readSingleton("IsleGlobals"), address(0xABCD));
+    }
+
+    function test_readSingleton_missingReverts() public {
+        BaseScriptIOHarness h = _newHarness("singleton_missing");
+        vm.expectRevert();
+        h.exposed_readSingleton("DoesNotExist");
+    }
+
+    function test_writeSingleton_overwritesExisting() public {
+        BaseScriptIOHarness h = _newHarness("singleton_overwrite");
+        h.exposed_writeSingleton("IsleGlobals", address(0xAAAA));
+        h.exposed_writeSingleton("IsleGlobals", address(0xBBBB));
+        assertEq(h.exposed_readSingleton("IsleGlobals"), address(0xBBBB));
+    }
+}
