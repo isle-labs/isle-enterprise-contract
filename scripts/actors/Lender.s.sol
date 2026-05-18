@@ -27,11 +27,9 @@ abstract contract LenderActor is BaseScript {
         address addr = vm.envOr(_lenderAddressEnvName(), address(0));
         if (addr != address(0)) return addr;
 
-        string memory mnemonic = vm.envOr(
-            "MNEMONIC",
-            string("test test test test test test test test test test test junk")
-        );
-        (address derived, ) = deriveRememberKey(mnemonic, 5);
+        string memory mnemonic =
+            vm.envOr("MNEMONIC", string("test test test test test test test test test test test junk"));
+        (address derived,) = deriveRememberKey(mnemonic, 5);
         return derived;
     }
 

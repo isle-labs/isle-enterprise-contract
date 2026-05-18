@@ -27,11 +27,9 @@ abstract contract GovernorActor is BaseScript {
         address addr = vm.envOr(_governorAddressEnvName(), address(0));
         if (addr != address(0)) return addr;
 
-        string memory mnemonic = vm.envOr(
-            "MNEMONIC",
-            string("test test test test test test test test test test test junk")
-        );
-        (address derived, ) = deriveRememberKey(mnemonic, 0);
+        string memory mnemonic =
+            vm.envOr("MNEMONIC", string("test test test test test test test test test test test junk"));
+        (address derived,) = deriveRememberKey(mnemonic, 0);
         return derived;
     }
 

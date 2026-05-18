@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import { ILoanManager } from "contracts/interfaces/ILoanManager.sol";
 
 import { PoolAdminActor } from "scripts/actors/PoolAdmin.s.sol";
-import { MarketRecord }   from "scripts/Base.s.sol";
+import { MarketRecord } from "scripts/Base.s.sol";
 
 contract FundLoan is PoolAdminActor {
     function run() public {

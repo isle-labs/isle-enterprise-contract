@@ -14,17 +14,17 @@ struct MarketRecord {
 }
 
 abstract contract BaseScript is Script {
-    bytes32 internal constant ZERO_SALT       = bytes32(0);
-    string  internal constant DEPLOYMENT_PATH = "scripts/deployment.toml";
-    string  internal constant CONFIG_PATH     = "scripts/config.toml";
+    bytes32 internal constant ZERO_SALT = bytes32(0);
+    string internal constant DEPLOYMENT_PATH = "scripts/deployment.toml";
+    string internal constant CONFIG_PATH = "scripts/config.toml";
 
     function currentChain() internal view returns (string memory) {
         uint256 id = block.chainid;
-        if (id == 1)          return "mainnet";
+        if (id == 1) return "mainnet";
         if (id == 11_155_111) return "sepolia";
-        if (id == 8453)       return "base";
-        if (id == 84_532)     return "baseSepolia";
-        if (id == 31_337)     return "anvil";
+        if (id == 8453) return "base";
+        if (id == 84_532) return "baseSepolia";
+        if (id == 31_337) return "anvil";
         revert(string.concat("BaseScript: unmapped chainid ", vm.toString(id)));
     }
 
@@ -38,7 +38,7 @@ abstract contract BaseScript is Script {
 
     function readSingleton(string memory name) internal view returns (address) {
         string memory toml = vm.readFile(_deploymentPath());
-        string memory key  = string.concat(".", currentChain(), ".", name);
+        string memory key = string.concat(".", currentChain(), ".", name);
         return vm.parseTomlAddress(toml, key);
     }
 
@@ -49,8 +49,8 @@ abstract contract BaseScript is Script {
 
     function readMarket(string memory marketName) internal view returns (MarketRecord memory) {
         string memory toml = vm.readFile(_deploymentPath());
-        string memory key  = string.concat(".", currentChain(), ".markets");
-        bytes memory raw   = vm.parseToml(toml, key);
+        string memory key = string.concat(".", currentChain(), ".markets");
+        bytes memory raw = vm.parseToml(toml, key);
         MarketRecord[] memory markets = abi.decode(raw, (MarketRecord[]));
 
         for (uint256 i = 0; i < markets.length; i++) {
@@ -83,7 +83,7 @@ abstract contract BaseScript is Script {
 
     function _readMarketsOrEmpty() private view returns (MarketRecord[] memory) {
         string memory toml = vm.readFile(_deploymentPath());
-        string memory key  = string.concat(".", currentChain(), ".markets");
+        string memory key = string.concat(".", currentChain(), ".markets");
         try this.__parseMarkets(toml, key) returns (MarketRecord[] memory existing) {
             return existing;
         } catch {
@@ -92,17 +92,13 @@ abstract contract BaseScript is Script {
     }
 
     /// @dev External wrapper required so `_readMarketsOrEmpty` can use try/catch.
-    function __parseMarkets(string memory toml, string memory key)
-        external
-        pure
-        returns (MarketRecord[] memory)
-    {
+    function __parseMarkets(string memory toml, string memory key) external pure returns (MarketRecord[] memory) {
         return abi.decode(vm.parseToml(toml, key), (MarketRecord[]));
     }
 
     function readExternal(string memory name) internal view returns (address) {
         string memory toml = vm.readFile(_configPath());
-        string memory key  = string.concat(".", currentChain(), ".", name);
+        string memory key = string.concat(".", currentChain(), ".", name);
         return vm.parseTomlAddress(toml, key);
     }
 
@@ -110,22 +106,18 @@ abstract contract BaseScript is Script {
         string memory acc = "[";
         for (uint256 i = 0; i < recs.length; i++) {
             string memory k = string.concat("__mkt", vm.toString(i));
-            vm.serializeAddress(k, "LoanManager",           recs[i].LoanManager);
-            vm.serializeAddress(k, "Pool",                  recs[i].Pool);
+            vm.serializeAddress(k, "LoanManager", recs[i].LoanManager);
+            vm.serializeAddress(k, "Pool", recs[i].Pool);
             vm.serializeAddress(k, "PoolAddressesProvider", recs[i].PoolAddressesProvider);
-            vm.serializeAddress(k, "PoolConfigurator",      recs[i].PoolConfigurator);
-            vm.serializeAddress(k, "WithdrawalManager",     recs[i].WithdrawalManager);
+            vm.serializeAddress(k, "PoolConfigurator", recs[i].PoolConfigurator);
+            vm.serializeAddress(k, "WithdrawalManager", recs[i].WithdrawalManager);
             string memory item = vm.serializeString(k, "name", recs[i].name);
             acc = string.concat(acc, item, i + 1 == recs.length ? "" : ",");
         }
         return string.concat(acc, "]");
     }
 
-    function patchMarketField(
-        string memory marketName,
-        string memory fieldName,
-        address       newValue
-    ) internal {
+    function patchMarketField(string memory marketName, string memory fieldName, address newValue) internal {
         MarketRecord[] memory markets = _readMarketsOrEmpty();
 
         bool found;
@@ -144,11 +136,11 @@ abstract contract BaseScript is Script {
 
     function _setField(MarketRecord memory rec, string memory fieldName, address v) private pure {
         bytes32 f = keccak256(bytes(fieldName));
-        if (f == keccak256("LoanManager"))                rec.LoanManager           = v;
-        else if (f == keccak256("Pool"))                  rec.Pool                  = v;
+        if (f == keccak256("LoanManager")) rec.LoanManager = v;
+        else if (f == keccak256("Pool")) rec.Pool = v;
         else if (f == keccak256("PoolAddressesProvider")) rec.PoolAddressesProvider = v;
-        else if (f == keccak256("PoolConfigurator"))      rec.PoolConfigurator      = v;
-        else if (f == keccak256("WithdrawalManager"))     rec.WithdrawalManager     = v;
+        else if (f == keccak256("PoolConfigurator")) rec.PoolConfigurator = v;
+        else if (f == keccak256("WithdrawalManager")) rec.WithdrawalManager = v;
         else revert(string.concat("BaseScript: unknown market field: ", fieldName));
     }
 

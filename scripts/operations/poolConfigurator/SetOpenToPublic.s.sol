@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import { IPoolConfigurator } from "contracts/interfaces/IPoolConfigurator.sol";
 
 import { PoolAdminActor } from "scripts/actors/PoolAdmin.s.sol";
-import { MarketRecord }   from "scripts/Base.s.sol";
+import { MarketRecord } from "scripts/Base.s.sol";
 
 contract SetOpenToPublic is PoolAdminActor {
     function run() public {

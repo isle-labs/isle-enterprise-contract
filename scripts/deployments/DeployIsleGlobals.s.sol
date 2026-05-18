@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
-import { UUPSProxy }   from "contracts/libraries/upgradability/UUPSProxy.sol";
+import { UUPSProxy } from "contracts/libraries/upgradability/UUPSProxy.sol";
 import { IsleGlobals } from "contracts/IsleGlobals.sol";
 
 import { DeployerActor } from "scripts/actors/Deployer.s.sol";

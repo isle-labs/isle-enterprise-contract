@@ -7,9 +7,9 @@ import { GovernorActor } from "scripts/actors/Governor.s.sol";
 
 contract SetValidReceivableAsset is GovernorActor {
     function run() public {
-        address globals    = readSingleton("IsleGlobals");
+        address globals = readSingleton("IsleGlobals");
         address receivable = promptAddress("Receivable asset address");
-        bool    isValid    = promptBool("Is valid? (true/false)");
+        bool isValid = promptBool("Is valid? (true/false)");
         _set(globals, receivable, isValid);
     }
 

@@ -8,7 +8,7 @@ import { GovernorActor } from "scripts/actors/Governor.s.sol";
 contract SetIsleVault is GovernorActor {
     function run() public {
         address globals = readSingleton("IsleGlobals");
-        address vault   = promptAddress("Isle vault address");
+        address vault = promptAddress("Isle vault address");
         _set(globals, vault);
     }
 

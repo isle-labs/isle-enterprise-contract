@@ -8,8 +8,8 @@ import { GovernorActor } from "scripts/actors/Governor.s.sol";
 contract SetValidPoolAdmin is GovernorActor {
     function run() public {
         address globals = readSingleton("IsleGlobals");
-        address admin   = promptAddress("Pool admin address");
-        bool    isValid = promptBool("Is valid? (true/false)");
+        address admin = promptAddress("Pool admin address");
+        bool isValid = promptBool("Is valid? (true/false)");
         _set(globals, admin, isValid);
     }
 

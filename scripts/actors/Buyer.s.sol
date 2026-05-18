@@ -27,11 +27,9 @@ abstract contract BuyerActor is BaseScript {
         address addr = vm.envOr(_buyerAddressEnvName(), address(0));
         if (addr != address(0)) return addr;
 
-        string memory mnemonic = vm.envOr(
-            "MNEMONIC",
-            string("test test test test test test test test test test test junk")
-        );
-        (address derived, ) = deriveRememberKey(mnemonic, 3);
+        string memory mnemonic =
+            vm.envOr("MNEMONIC", string("test test test test test test test test test test test junk"));
+        (address derived,) = deriveRememberKey(mnemonic, 3);
         return derived;
     }
 

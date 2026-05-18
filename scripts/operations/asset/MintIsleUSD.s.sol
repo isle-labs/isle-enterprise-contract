@@ -9,9 +9,9 @@ import { BuyerActor } from "scripts/actors/Buyer.s.sol";
 ///         buyer key by convention but any signer can call ERC20Mint.mint.
 contract MintIsleUSD is BuyerActor {
     function run() public {
-        address asset       = readSingleton("IsleUSD");
+        address asset = readSingleton("IsleUSD");
         address beneficiary = promptAddress("Beneficiary address");
-        uint256 amount      = promptUint("Mint amount (raw uint)");
+        uint256 amount = promptUint("Mint amount (raw uint)");
         _mint(asset, beneficiary, amount);
     }
 

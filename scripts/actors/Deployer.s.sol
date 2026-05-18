@@ -27,11 +27,9 @@ abstract contract DeployerActor is BaseScript {
         address addr = vm.envOr(_deployerAddressEnvName(), address(0));
         if (addr != address(0)) return addr;
 
-        string memory mnemonic = vm.envOr(
-            "MNEMONIC",
-            string("test test test test test test test test test test test junk")
-        );
-        (address derived, ) = deriveRememberKey(mnemonic, 2);
+        string memory mnemonic =
+            vm.envOr("MNEMONIC", string("test test test test test test test test test test test junk"));
+        (address derived,) = deriveRememberKey(mnemonic, 2);
         return derived;
     }
 

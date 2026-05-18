@@ -2,26 +2,22 @@
 pragma solidity 0.8.19;
 
 import { PoolAddressesProvider } from "contracts/PoolAddressesProvider.sol";
-import { WithdrawalManager }     from "contracts/WithdrawalManager.sol";
+import { WithdrawalManager } from "contracts/WithdrawalManager.sol";
 
 import { DeployerActor } from "scripts/actors/Deployer.s.sol";
 import { GovernorActor } from "scripts/actors/Governor.s.sol";
-import { MarketRecord }  from "scripts/Base.s.sol";
+import { MarketRecord } from "scripts/Base.s.sol";
 
 /// @notice usage: forge script DeployWithdrawalManager --rpc-url <url> --broadcast
 contract DeployWithdrawalManager is DeployerActor, GovernorActor {
     function run() public {
         MarketRecord memory market = promptMarket();
-        uint256 cycleDuration  = promptUint("Cycle duration (seconds)");
+        uint256 cycleDuration = promptUint("Cycle duration (seconds)");
         uint256 windowDuration = promptUint("Window duration (seconds)");
 
-        address impl    = _deployImpl(PoolAddressesProvider(market.PoolAddressesProvider));
-        address manager = _wire(
-            PoolAddressesProvider(market.PoolAddressesProvider),
-            impl,
-            cycleDuration,
-            windowDuration
-        );
+        address impl = _deployImpl(PoolAddressesProvider(market.PoolAddressesProvider));
+        address manager =
+            _wire(PoolAddressesProvider(market.PoolAddressesProvider), impl, cycleDuration, windowDuration);
 
         patchMarketField(market.name, "WithdrawalManager", manager);
     }
@@ -41,10 +37,7 @@ contract DeployWithdrawalManager is DeployerActor, GovernorActor {
         returns (address)
     {
         bytes memory params = abi.encodeWithSelector(
-            WithdrawalManager.initialize.selector,
-            address(provider),
-            cycleDuration,
-            windowDuration
+            WithdrawalManager.initialize.selector, address(provider), cycleDuration, windowDuration
         );
         provider.setWithdrawalManagerImpl(impl, params);
         return provider.getWithdrawalManager();
