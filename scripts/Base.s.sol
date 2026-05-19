@@ -44,7 +44,9 @@ abstract contract BaseScript is Script {
 
     function writeSingleton(string memory name, address addr) internal {
         string memory key = string.concat(".", currentChain(), ".", name);
-        vm.writeToml(vm.toString(addr), _deploymentPath(), key);
+        // JSON-quote so vm.writeToml emits a TOML string, matching how
+        // _serializeMarketArray (via vm.serializeAddress) writes addresses.
+        vm.writeToml(string.concat("\"", vm.toString(addr), "\""), _deploymentPath(), key);
     }
 
     function readMarket(string memory marketName) internal view returns (MarketRecord memory) {
