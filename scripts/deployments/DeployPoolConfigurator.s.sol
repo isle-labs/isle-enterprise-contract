@@ -25,11 +25,16 @@ contract DeployPoolConfigurator is DeployerActor, GovernorActor {
         address configurator =
             _wire(PoolAddressesProvider(market.PoolAddressesProvider), impl, poolAdmin, asset, poolName, poolSymbol);
 
-        patchMarketField(market.name, "PoolConfigurator", configurator);
-
-        // Capture the Pool address created during initialization too.
+        // Capture the Pool address created during initialization, then write
+        // both fields in a single batch so the markets array is rewritten once.
         address pool = PoolConfigurator(configurator).pool();
-        patchMarketField(market.name, "Pool", pool);
+        string[] memory fields = new string[](2);
+        address[] memory values = new address[](2);
+        fields[0] = "PoolConfigurator";
+        values[0] = configurator;
+        fields[1] = "Pool";
+        values[1] = pool;
+        patchMarketFields(market.name, fields, values);
     }
 
     function _deployImpl(PoolAddressesProvider provider) internal asDeployer returns (address) {

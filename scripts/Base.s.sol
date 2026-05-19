@@ -120,12 +120,33 @@ abstract contract BaseScript is Script {
     }
 
     function patchMarketField(string memory marketName, string memory fieldName, address newValue) internal {
+        string[] memory names = new string[](1);
+        address[] memory values = new address[](1);
+        names[0] = fieldName;
+        values[0] = newValue;
+        patchMarketFields(marketName, names, values);
+    }
+
+    /// @dev Batch variant: applies multiple field updates in a single
+    ///      read-modify-write cycle so the markets array is only re-serialized
+    ///      once per call.
+    function patchMarketFields(
+        string memory marketName,
+        string[] memory fieldNames,
+        address[] memory newValues
+    )
+        internal
+    {
+        require(fieldNames.length == newValues.length, "BaseScript: patch length mismatch");
+
         MarketRecord[] memory markets = _readMarketsOrEmpty();
 
         bool found;
         for (uint256 i = 0; i < markets.length; i++) {
             if (keccak256(bytes(markets[i].name)) == keccak256(bytes(marketName))) {
-                _setField(markets[i], fieldName, newValue);
+                for (uint256 j = 0; j < fieldNames.length; j++) {
+                    _setField(markets[i], fieldNames[j], newValues[j]);
+                }
                 found = true;
                 break;
             }
