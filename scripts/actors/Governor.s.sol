@@ -3,34 +3,16 @@ pragma solidity 0.8.19;
 
 import { BaseScript } from "scripts/Base.s.sol";
 
+/// @dev Tier 1 (governance). Holds only the expected EOA; never loads a
+///      private key. Caller supplies the signer at the CLI (`--ledger`,
+///      `--aws`, `--keystore`, etc.). Strict revert if GOVERNOR is unset
+///      or zero.
 abstract contract GovernorActor is BaseScript {
     address internal governor;
 
     constructor() {
-        governor = _loadGovernor();
-    }
-
-    /// @dev Override in tests to supply a distinct env-var name and avoid cross-test contamination.
-    function _governorKeyEnvName() internal pure virtual returns (string memory) {
-        return "GOVERNOR_KEY";
-    }
-
-    /// @dev Override in tests to supply a distinct env-var name and avoid cross-test contamination.
-    function _governorAddressEnvName() internal pure virtual returns (string memory) {
-        return "GOVERNOR";
-    }
-
-    function _loadGovernor() private returns (address) {
-        uint256 key = vm.envOr(_governorKeyEnvName(), uint256(0));
-        if (key != 0) return vm.rememberKey(key);
-
-        address addr = vm.envOr(_governorAddressEnvName(), address(0));
-        if (addr != address(0)) return addr;
-
-        string memory mnemonic =
-            vm.envOr("MNEMONIC", string("test test test test test test test test test test test junk"));
-        (address derived,) = deriveRememberKey(mnemonic, 0);
-        return derived;
+        governor = vm.envAddress("GOVERNOR");
+        require(governor != address(0), "GovernorActor: GOVERNOR is zero");
     }
 
     modifier asGovernor() {

@@ -3,34 +3,16 @@ pragma solidity 0.8.19;
 
 import { BaseScript } from "scripts/Base.s.sol";
 
+/// @dev Tier 1 (governance). Holds only the expected EOA; never loads a
+///      private key. Caller supplies the signer at the CLI (`--ledger`,
+///      `--aws`, `--keystore`, etc.). Strict revert if POOL_ADMIN is unset
+///      or zero.
 abstract contract PoolAdminActor is BaseScript {
     address internal poolAdmin;
 
     constructor() {
-        poolAdmin = _loadPoolAdmin();
-    }
-
-    /// @dev Override in tests to supply a distinct env-var name and avoid cross-test contamination.
-    function _poolAdminKeyEnvName() internal pure virtual returns (string memory) {
-        return "POOL_ADMIN_KEY";
-    }
-
-    /// @dev Override in tests to supply a distinct env-var name and avoid cross-test contamination.
-    function _poolAdminAddressEnvName() internal pure virtual returns (string memory) {
-        return "POOL_ADMIN";
-    }
-
-    function _loadPoolAdmin() private returns (address) {
-        uint256 key = vm.envOr(_poolAdminKeyEnvName(), uint256(0));
-        if (key != 0) return vm.rememberKey(key);
-
-        address addr = vm.envOr(_poolAdminAddressEnvName(), address(0));
-        if (addr != address(0)) return addr;
-
-        string memory mnemonic =
-            vm.envOr("MNEMONIC", string("test test test test test test test test test test test junk"));
-        (address derived,) = deriveRememberKey(mnemonic, 1);
-        return derived;
+        poolAdmin = vm.envAddress("POOL_ADMIN");
+        require(poolAdmin != address(0), "PoolAdminActor: POOL_ADMIN is zero");
     }
 
     modifier asPoolAdmin() {
