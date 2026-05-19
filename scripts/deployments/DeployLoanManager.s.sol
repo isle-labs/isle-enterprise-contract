@@ -9,6 +9,10 @@ import { GovernorActor } from "scripts/actors/Governor.s.sol";
 import { MarketRecord } from "scripts/Base.s.sol";
 
 /// @notice usage: forge script DeployLoanManager --rpc-url <url> --broadcast
+/// @dev Requires two distinct actor env setups: DEPLOYER_KEY/DEPLOYER and
+///      GOVERNOR_KEY/GOVERNOR. Each actor is loaded independently in its
+///      constructor; misconfiguring one silently falls back to a mnemonic
+///      index, so verify both before broadcasting.
 contract DeployLoanManager is DeployerActor, GovernorActor {
     function run() public {
         MarketRecord memory market = promptMarket();
