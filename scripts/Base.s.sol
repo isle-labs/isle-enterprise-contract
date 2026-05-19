@@ -18,14 +18,12 @@ abstract contract BaseScript is Script {
     string internal constant DEPLOYMENT_PATH = "scripts/deployment.toml";
     string internal constant CONFIG_PATH = "scripts/config.toml";
 
+    /// @dev Operator-controlled chain key. Must match the section header used
+    ///      in deployment.toml / config.toml; conventionally the same alias
+    ///      passed to `--rpc-url`. Reverts if `CHAIN` is unset to avoid
+    ///      silently writing to the wrong section.
     function currentChain() internal view returns (string memory) {
-        uint256 id = block.chainid;
-        if (id == 1) return "mainnet";
-        if (id == 11_155_111) return "sepolia";
-        if (id == 8453) return "base";
-        if (id == 84_532) return "baseSepolia";
-        if (id == 31_337) return "anvil";
-        revert(string.concat("BaseScript: unmapped chainid ", vm.toString(id)));
+        return vm.envString("CHAIN");
     }
 
     function _deploymentPath() internal view virtual returns (string memory) {
