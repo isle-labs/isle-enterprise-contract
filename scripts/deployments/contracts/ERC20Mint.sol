@@ -8,7 +8,15 @@ interface IERC20Mint {
 }
 
 contract ERC20Mint is ERC20 {
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) { }
+    uint8 private immutable _decimals;
+
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) ERC20(name_, symbol_) {
+        _decimals = decimals_;
+    }
+
+    function decimals() public view override returns (uint8) {
+        return _decimals;
+    }
 
     function mint(address beneficiary_, uint256 amount_) external {
         _mint(beneficiary_, amount_);

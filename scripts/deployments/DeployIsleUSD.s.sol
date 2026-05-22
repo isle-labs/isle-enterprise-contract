@@ -10,11 +10,12 @@ import { ERC20Mint } from "scripts/deployments/contracts/ERC20Mint.sol";
 /// @notice usage: forge script DeployIsleUSD --rpc-url <url> --broadcast
 contract DeployIsleUSD is DeployerActor {
     function run() public {
-        ERC20 asset = _deploy();
+        uint8 decimals = uint8(promptUint("IsleUSD decimals (default 6 for USDC parity)"));
+        ERC20 asset = _deploy(decimals);
         writeSingleton("IsleUSD", address(asset));
     }
 
-    function _deploy() internal asDeployer returns (ERC20) {
-        return new ERC20Mint("Isle USD", "IUSD");
+    function _deploy(uint8 decimals_) internal asDeployer returns (ERC20) {
+        return new ERC20Mint("Isle USD", "IUSD", decimals_);
     }
 }
