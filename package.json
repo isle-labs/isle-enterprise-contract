@@ -2,6 +2,7 @@
   "name": "isle",
   "description": "Smart contracts of the isle finance supply chain financing capital.",
   "version": "0.1.0",
+  "packageManager": "pnpm@10.25.0",
   "author": {
     "name": "bsostech",
     "url": "https://github.com/bsostech"
