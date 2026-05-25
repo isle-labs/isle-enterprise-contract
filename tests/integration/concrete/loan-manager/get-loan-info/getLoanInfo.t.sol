@@ -52,7 +52,7 @@ contract GetLoanInfo_LoanManager_Integration_Concrete_Test is
             originalDueDate: 0, // replace with actual original due date
             gracePeriod: 0, // replace with actual grace period
             isImpaired: false // replace with actual isImpaired value
-         });
+        });
     }
 
     function test_GetLoanInfo_InvalidLoanId() external {

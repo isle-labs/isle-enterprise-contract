@@ -1,0 +1,22 @@
+# Ledger of contracts deployed by scripts in scripts/deployments/.
+# Managed automatically by Deploy*.s.sol; do not edit by hand unless restoring.
+
+[hedera]
+IsleGlobals = "0x0b2BdD04D12f4Fc7d4a45100cE3dC10605b44B00"
+Receivable = "0x536ad6c51716db79713eafc1c30948f0759ff12e"
+
+[[hedera.markets]]
+LoanManager = "0x2A2BA0B866aF8fB9F6b219A554AF8E3155802CBA"
+Pool = "0x53990bdEc017085153eB807236E744CA63C21fF4"
+PoolAddressesProvider = "0x01df906f8adae8eade615c8166d3fff0d647890a"
+PoolConfigurator = "0x4e5d0F32e4d2D5Ad3b72C3b208191c8695A60041"
+WithdrawalManager = "0x589546a0A5F0853dC50922cA6F891DC6Bf11ae4D"
+name = "wuren"
+
+[[hedera.markets]]
+LoanManager = "0x67703aD04a168525a0555fd063Cdd6E4692437dD"
+Pool = "0xa605cA467E68dF89C59B5DEbAE71A24ce2863E91"
+PoolAddressesProvider = "0x2cf98bc6025a4c9efe495851a0c84cbb53b9e0e1"
+PoolConfigurator = "0x8C42faFDa347bbFA699A31aDB8858ad2EC4b9Ae2"
+WithdrawalManager = "0xBcA3BA4B760B922f455d9fee91807100f8E0A63f"
+name = "chipright"

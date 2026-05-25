@@ -22,7 +22,7 @@ contract PoolConfigurator is VersionedInitializable, IPoolConfigurator, PoolConf
     using SafeERC20 for IERC20;
 
     uint256 public constant HUNDRED_PERCENT = 1_000_000; // e.g. 100% = 100 * HUNDRED_PERCENT, integer with 6 decimal
-        // precision
+    // precision
     uint256 public constant POOL_CONFIGURATOR_REVISION = 0x1;
 
     IPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
@@ -87,8 +87,7 @@ contract PoolConfigurator is VersionedInitializable, IPoolConfigurator, PoolConf
         /* Checks */
         if (ADDRESSES_PROVIDER != provider_) {
             revert Errors.InvalidAddressesProvider({
-                expectedProvider: address(ADDRESSES_PROVIDER),
-                provider: address(provider_)
+                expectedProvider: address(ADDRESSES_PROVIDER), provider: address(provider_)
             });
         }
 

@@ -15,9 +15,7 @@ contract AddPaymentToList_LoanManager_Unit_Concrete_Test is PaymentList_Unit_Sha
 
         Loan.SortedPayment memory actualSortedPayment_ = loanManagerHarness.getSortedPayment(paymentId_);
         Loan.SortedPayment memory expectedSortedPayment_ = Loan.SortedPayment({
-            previous: 0,
-            next: 0,
-            paymentDueDate: SafeCast.toUint48(defaults.REPAYMENT_TIMESTAMP())
+            previous: 0, next: 0, paymentDueDate: SafeCast.toUint48(defaults.REPAYMENT_TIMESTAMP())
         });
 
         assertEq(actualSortedPayment_, expectedSortedPayment_);
@@ -31,9 +29,7 @@ contract AddPaymentToList_LoanManager_Unit_Concrete_Test is PaymentList_Unit_Sha
 
         Loan.SortedPayment memory actualSortedPaymentEarliest_ = loanManagerHarness.getSortedPayment(paymentId2_);
         Loan.SortedPayment memory expectedSortedPaymentEarliest_ = Loan.SortedPayment({
-            previous: 0,
-            next: paymentId1_,
-            paymentDueDate: SafeCast.toUint48(paymentDueDateEarliest_)
+            previous: 0, next: paymentId1_, paymentDueDate: SafeCast.toUint48(paymentDueDateEarliest_)
         });
 
         assertEq(actualSortedPaymentEarliest_, expectedSortedPaymentEarliest_);
@@ -47,9 +43,7 @@ contract AddPaymentToList_LoanManager_Unit_Concrete_Test is PaymentList_Unit_Sha
 
         Loan.SortedPayment memory actualSortedPaymentLatest_ = loanManagerHarness.getSortedPayment(paymentId2_);
         Loan.SortedPayment memory expectedSortedPaymentLatest_ = Loan.SortedPayment({
-            previous: paymentId1_,
-            next: 0,
-            paymentDueDate: SafeCast.toUint48(paymentDueDateLatest_)
+            previous: paymentId1_, next: 0, paymentDueDate: SafeCast.toUint48(paymentDueDateLatest_)
         });
 
         assertEq(actualSortedPaymentLatest_, expectedSortedPaymentLatest_);
@@ -67,9 +61,7 @@ contract AddPaymentToList_LoanManager_Unit_Concrete_Test is PaymentList_Unit_Sha
 
         Loan.SortedPayment memory actualSortedPaymentMid_ = loanManagerHarness.getSortedPayment(paymentId3_);
         Loan.SortedPayment memory expectedSortedPaymentMid_ = Loan.SortedPayment({
-            previous: paymentId1_,
-            next: paymentId2_,
-            paymentDueDate: SafeCast.toUint48(paymentDueDateMid_)
+            previous: paymentId1_, next: paymentId2_, paymentDueDate: SafeCast.toUint48(paymentDueDateMid_)
         });
 
         assertEq(actualSortedPaymentMid_, expectedSortedPaymentMid_);

@@ -60,9 +60,7 @@ contract ProcessRedeem_Integration_Concrete_Test is PoolConfigurator_Integration
             resultingAssets_: expectedResultingAssets_
         });
         (uint256 actualRedeemableShares_, uint256 actualResultingAssets_) = poolConfigurator.processRedeem({
-            owner_: users.receiver,
-            shares_: defaults.REDEEM_SHARES(),
-            sender_: users.receiver
+            owner_: users.receiver, shares_: defaults.REDEEM_SHARES(), sender_: users.receiver
         });
 
         assertEq(actualResultingAssets_, expectedResultingAssets_);

@@ -42,17 +42,11 @@ contract AddShares_Integration_Concrete_Test is WithdrawalManager_Integration_Sh
         (uint64 windowStart_, uint64 windowEnd_) = withdrawalManager.getWindowAtId(_expectedExitCycleId);
 
         expectCallToTransferFrom({
-            asset: pool,
-            from: address(poolConfigurator),
-            to: address(withdrawalManager),
-            amount: addShares_
+            asset: pool, from: address(poolConfigurator), to: address(withdrawalManager), amount: addShares_
         });
         vm.expectEmit(address(withdrawalManager));
         emit WithdrawalUpdated({
-            account_: users.receiver,
-            lockedShares_: addShares_,
-            windowStart_: windowStart_,
-            windowEnd_: windowEnd_
+            account_: users.receiver, lockedShares_: addShares_, windowStart_: windowStart_, windowEnd_: windowEnd_
         });
 
         addDefaultShares();

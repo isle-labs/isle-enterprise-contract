@@ -201,11 +201,7 @@ contract Pool is IPool, ERC20Permit {
         (redeemableShares_, assets_) = IPoolConfigurator(configurator).processRedeem(shares_, owner_, _msgSender());
 
         _withdraw({
-            caller: _msgSender(),
-            receiver: receiver_,
-            owner: owner_,
-            assets: assets_,
-            shares: redeemableShares_
+            caller: _msgSender(), receiver: receiver_, owner: owner_, assets: assets_, shares: redeemableShares_
         });
     }
 
@@ -330,10 +326,7 @@ contract Pool is IPool, ERC20Permit {
         return 4;
     }
 
-    function _convertToShares(
-        uint256 assets_,
-        Math.Rounding rounding_
-    )
+    function _convertToShares(uint256 assets_, Math.Rounding rounding_)
         internal
         view
         virtual
@@ -355,10 +348,7 @@ contract Pool is IPool, ERC20Permit {
             assets_.mulDiv(totalSupply() + 10 ** _decimalsOffset(), totalAssets() - unrealizedLosses() + 1, rounding_);
     }
 
-    function _convertToAssets(
-        uint256 shares_,
-        Math.Rounding rounding_
-    )
+    function _convertToAssets(uint256 shares_, Math.Rounding rounding_)
         internal
         view
         virtual

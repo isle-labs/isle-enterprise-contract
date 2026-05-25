@@ -3,129 +3,185 @@ pragma solidity 0.8.19;
 
 import { Script } from "@forge-std/Script.sol";
 
-import { UUPSProxy } from "../contracts/libraries/upgradability/UUPSProxy.sol";
-
-import { IsleGlobals } from "../contracts/IsleGlobals.sol";
-import { Receivable } from "../contracts/Receivable.sol";
+/// @dev Alphabetical field order is required for vm.parseToml struct decoding.
+struct MarketRecord {
+    address LoanManager;
+    address Pool;
+    address PoolAddressesProvider;
+    address PoolConfigurator;
+    address WithdrawalManager;
+    string name;
+}
 
 abstract contract BaseScript is Script {
-    /// @dev included to enable the compilation of the script without a $MNEMONIC environment variable
-    string internal constant TEST_MNEMONIC = "test test test test test test test test test test test junk";
-
-    /// @dev needed for deterministic deployments
     bytes32 internal constant ZERO_SALT = bytes32(0);
+    string internal constant DEPLOYMENT_PATH = "scripts/deployment.toml";
+    string internal constant CONFIG_PATH = "scripts/config.toml";
 
-    /// @dev Used to derive the addresses if environment variables are not defined.
-    string internal mnemonic;
+    /// @dev Operator-controlled chain key. Must match the section header used
+    ///      in deployment.toml / config.toml; conventionally the same alias
+    ///      passed to `--rpc-url`. Reverts if `CHAIN` is unset to avoid
+    ///      silently writing to the wrong section.
+    function currentChain() internal view returns (string memory) {
+        return vm.envString("CHAIN");
+    }
 
-    /// @dev address of the participants
-    address internal deployer;
-    address internal poolAdmin;
-    address internal buyer;
-    address internal seller;
-    address internal governor;
-    address internal lender;
-    address internal vault;
+    function _deploymentPath() internal view virtual returns (string memory) {
+        return DEPLOYMENT_PATH;
+    }
 
-    /// @dev Initializes the participants like this:
-    ///
-    /// - If ${PARTICIPANT} is defined, use it.
-    /// - Otherwise, derive the participant address from $MNEMONIC.
-    /// - If $MNEMONIC is not defined, default to a test mnemonic.
-    constructor() {
-        mnemonic = vm.envOr({ name: "MNEMONIC", defaultValue: TEST_MNEMONIC });
+    function _configPath() internal view virtual returns (string memory) {
+        return CONFIG_PATH;
+    }
 
-        address governor_ = vm.envOr({ name: "GOVERNOR", defaultValue: address(0) });
-        uint256 governorKey_ = vm.envOr({ name: "GOVERNOR_KEY", defaultValue: uint256(0) });
+    function readSingleton(string memory name) internal view returns (address) {
+        string memory toml = vm.readFile(_deploymentPath());
+        string memory key = string.concat(".", currentChain(), ".", name);
+        return vm.parseTomlAddress(toml, key);
+    }
 
-        if (governorKey_ != 0) {
-            governor = vm.rememberKey({ privateKey: governorKey_ });
-        } else if (governor_ != address(0)) {
-            governor = governor_;
-        } else {
-            (governor,) = deriveRememberKey({ mnemonic: mnemonic, index: 0 });
+    function writeSingleton(string memory name, address addr) internal {
+        string memory key = string.concat(".", currentChain(), ".", name);
+        // JSON-quote so vm.writeToml emits a TOML string, matching how
+        // _serializeMarketArray (via vm.serializeAddress) writes addresses.
+        vm.writeToml(string.concat("\"", vm.toString(addr), "\""), _deploymentPath(), key);
+    }
+
+    function readMarket(string memory marketName) internal view returns (MarketRecord memory) {
+        string memory toml = vm.readFile(_deploymentPath());
+        string memory key = string.concat(".", currentChain(), ".markets");
+        bytes memory raw = vm.parseToml(toml, key);
+        MarketRecord[] memory markets = abi.decode(raw, (MarketRecord[]));
+
+        for (uint256 i = 0; i < markets.length; i++) {
+            if (keccak256(bytes(markets[i].name)) == keccak256(bytes(marketName))) {
+                return markets[i];
+            }
+        }
+        revert(string.concat("BaseScript: market not found on ", currentChain(), ": ", marketName));
+    }
+
+    function appendMarket(MarketRecord memory rec) internal {
+        MarketRecord[] memory existing = _readMarketsOrEmpty();
+
+        for (uint256 i = 0; i < existing.length; i++) {
+            require(
+                keccak256(bytes(existing[i].name)) != keccak256(bytes(rec.name)),
+                string.concat("BaseScript: market already exists on ", currentChain(), ": ", rec.name)
+            );
         }
 
-        address poolAdmin_ = vm.envOr({ name: "POOL_ADMIN", defaultValue: address(0) });
-        uint256 poolAdminKey_ = vm.envOr({ name: "POOL_ADMIN_KEY", defaultValue: uint256(0) });
-
-        if (poolAdminKey_ != 0) {
-            poolAdmin = vm.rememberKey({ privateKey: poolAdminKey_ });
-        } else if (poolAdmin_ != address(0)) {
-            poolAdmin = poolAdmin_;
-        } else {
-            (poolAdmin,) = deriveRememberKey({ mnemonic: mnemonic, index: 1 });
+        MarketRecord[] memory next = new MarketRecord[](existing.length + 1);
+        for (uint256 i = 0; i < existing.length; i++) {
+            next[i] = existing[i];
         }
+        next[existing.length] = rec;
 
-        address deployer_ = vm.envOr({ name: "DEPLOYER", defaultValue: address(0) });
-        uint256 deployerKey_ = vm.envOr({ name: "DEPLOYER_KEY", defaultValue: uint256(0) });
+        string memory key = string.concat(".", currentChain(), ".markets");
+        vm.writeToml(_serializeMarketArray(next), _deploymentPath(), key);
+    }
 
-        if (deployerKey_ != 0) {
-            deployer = vm.rememberKey({ privateKey: deployerKey_ });
-        } else if (deployer_ != address(0)) {
-            deployer = deployer_;
-        } else {
-            (deployer,) = deriveRememberKey({ mnemonic: mnemonic, index: 2 });
-        }
-
-        address buyer_ = vm.envOr({ name: "BUYER", defaultValue: address(0) });
-        uint256 buyerKey_ = vm.envOr({ name: "BUYER_KEY", defaultValue: uint256(0) });
-
-        if (buyerKey_ != 0) {
-            buyer = vm.rememberKey({ privateKey: buyerKey_ });
-        } else if (buyer_ != address(0)) {
-            buyer = buyer_;
-        } else {
-            (buyer,) = deriveRememberKey({ mnemonic: mnemonic, index: 3 });
-        }
-
-        address seller_ = vm.envOr({ name: "SELLER", defaultValue: address(0) });
-        uint256 sellerKey_ = vm.envOr({ name: "SELLER_KEY", defaultValue: uint256(0) });
-
-        if (sellerKey_ != 0) {
-            seller = vm.rememberKey({ privateKey: sellerKey_ });
-        } else if (seller_ != address(0)) {
-            seller = seller_;
-        } else {
-            (seller,) = deriveRememberKey({ mnemonic: mnemonic, index: 4 });
-        }
-
-        address lender_ = vm.envOr({ name: "LENDER", defaultValue: address(0) });
-        uint256 lenderKey_ = vm.envOr({ name: "LENDER_KEY", defaultValue: uint256(0) });
-
-        if (lenderKey_ != 0) {
-            lender = vm.rememberKey({ privateKey: lenderKey_ });
-        } else if (lender_ != address(0)) {
-            lender = lender_;
-        } else {
-            (lender,) = deriveRememberKey({ mnemonic: mnemonic, index: 5 });
-        }
-
-        address vault_ = vm.envOr({ name: "VAULT", defaultValue: address(0) });
-        uint256 vaultKey_ = vm.envOr({ name: "VAULT_KEY", defaultValue: uint256(0) });
-
-        if (vaultKey_ != 0) {
-            vault = vm.rememberKey({ privateKey: vaultKey_ });
-        } else if (vault_ != address(0)) {
-            vault = vault_;
-        } else {
-            (vault,) = deriveRememberKey({ mnemonic: mnemonic, index: 6 });
+    function _readMarketsOrEmpty() private view returns (MarketRecord[] memory) {
+        string memory toml = vm.readFile(_deploymentPath());
+        string memory key = string.concat(".", currentChain(), ".markets");
+        try this.__parseMarkets(toml, key) returns (MarketRecord[] memory existing) {
+            return existing;
+        } catch {
+            return new MarketRecord[](0);
         }
     }
 
-    modifier broadcast(address broadcaster_) {
-        vm.startBroadcast(broadcaster_);
-        _;
-        vm.stopBroadcast();
+    /// @dev External wrapper required so `_readMarketsOrEmpty` can use try/catch.
+    function __parseMarkets(string memory toml, string memory key) external pure returns (MarketRecord[] memory) {
+        return abi.decode(vm.parseToml(toml, key), (MarketRecord[]));
     }
 
-    function deployGlobals() internal broadcast(deployer) returns (IsleGlobals globals_) {
-        bytes memory initializeData_ = abi.encodeWithSignature("initialize(address)", governor);
-        globals_ = IsleGlobals(address(new UUPSProxy(address(new IsleGlobals()), initializeData_)));
+    function readExternal(string memory name) internal view returns (address) {
+        string memory toml = vm.readFile(_configPath());
+        string memory key = string.concat(".", currentChain(), ".", name);
+        return vm.parseTomlAddress(toml, key);
     }
 
-    function deployReceivable(address isleGlobal_) internal broadcast(deployer) returns (Receivable receivable_) {
-        bytes memory initializeData_ = abi.encodeWithSignature("initialize(address)", isleGlobal_);
-        receivable_ = Receivable(address(new UUPSProxy(address(new Receivable()), initializeData_)));
+    function _serializeMarketArray(MarketRecord[] memory recs) private returns (string memory) {
+        string memory acc = "[";
+        for (uint256 i = 0; i < recs.length; i++) {
+            string memory k = string.concat("__mkt", vm.toString(i));
+            vm.serializeAddress(k, "LoanManager", recs[i].LoanManager);
+            vm.serializeAddress(k, "Pool", recs[i].Pool);
+            vm.serializeAddress(k, "PoolAddressesProvider", recs[i].PoolAddressesProvider);
+            vm.serializeAddress(k, "PoolConfigurator", recs[i].PoolConfigurator);
+            vm.serializeAddress(k, "WithdrawalManager", recs[i].WithdrawalManager);
+            string memory item = vm.serializeString(k, "name", recs[i].name);
+            acc = string.concat(acc, item, i + 1 == recs.length ? "" : ",");
+        }
+        return string.concat(acc, "]");
+    }
+
+    function patchMarketField(string memory marketName, string memory fieldName, address newValue) internal {
+        string[] memory names = new string[](1);
+        address[] memory values = new address[](1);
+        names[0] = fieldName;
+        values[0] = newValue;
+        patchMarketFields(marketName, names, values);
+    }
+
+    /// @dev Batch variant: applies multiple field updates in a single
+    ///      read-modify-write cycle so the markets array is only re-serialized
+    ///      once per call.
+    function patchMarketFields(
+        string memory marketName,
+        string[] memory fieldNames,
+        address[] memory newValues
+    )
+        internal
+    {
+        require(fieldNames.length == newValues.length, "BaseScript: patch length mismatch");
+
+        MarketRecord[] memory markets = _readMarketsOrEmpty();
+
+        bool found;
+        for (uint256 i = 0; i < markets.length; i++) {
+            if (keccak256(bytes(markets[i].name)) == keccak256(bytes(marketName))) {
+                for (uint256 j = 0; j < fieldNames.length; j++) {
+                    _setField(markets[i], fieldNames[j], newValues[j]);
+                }
+                found = true;
+                break;
+            }
+        }
+        require(found, string.concat("BaseScript: patch target market missing: ", marketName));
+
+        string memory key = string.concat(".", currentChain(), ".markets");
+        vm.writeToml(_serializeMarketArray(markets), _deploymentPath(), key);
+    }
+
+    function _setField(MarketRecord memory rec, string memory fieldName, address v) private pure {
+        bytes32 f = keccak256(bytes(fieldName));
+        if (f == keccak256("LoanManager")) rec.LoanManager = v;
+        else if (f == keccak256("Pool")) rec.Pool = v;
+        else if (f == keccak256("PoolAddressesProvider")) rec.PoolAddressesProvider = v;
+        else if (f == keccak256("PoolConfigurator")) rec.PoolConfigurator = v;
+        else if (f == keccak256("WithdrawalManager")) rec.WithdrawalManager = v;
+        else revert(string.concat("BaseScript: unknown market field: ", fieldName));
+    }
+
+    function promptAddress(string memory label) internal returns (address) {
+        return vm.parseAddress(vm.prompt(label));
+    }
+
+    function promptUint(string memory label) internal returns (uint256) {
+        return vm.parseUint(vm.prompt(label));
+    }
+
+    function promptString(string memory label) internal returns (string memory) {
+        return vm.prompt(label);
+    }
+
+    function promptBool(string memory label) internal returns (bool) {
+        return vm.parseBool(vm.prompt(label));
+    }
+
+    function promptMarket() internal returns (MarketRecord memory) {
+        return readMarket(promptString("Market name"));
     }
 }

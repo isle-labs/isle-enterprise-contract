@@ -72,8 +72,7 @@ abstract contract WithdrawalManager_Integration_Shared_Test is Integration_Test 
 
     function setDefaultNewExitConfig() internal {
         withdrawalManager.setExitConfig({
-            cycleDuration_: _params.newCycleDuration,
-            windowDuration_: _params.newWindowDuration
+            cycleDuration_: _params.newCycleDuration, windowDuration_: _params.newWindowDuration
         });
     }
 

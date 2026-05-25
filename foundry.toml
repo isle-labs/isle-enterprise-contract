@@ -15,7 +15,11 @@
         "Receivable",
         "IsleGlobals"
     ]
-    fs_permissions = [{ access = "read", path = "out-optimized" }]
+    fs_permissions = [
+        { access = "read",       path = "out-optimized" },
+        { access = "read-write", path = "scripts/deployment.toml" },
+        { access = "read",       path = "scripts/config.toml" },
+    ]
     optimizer = true
     optimizer_runs = 1_000
     out = "out"
