@@ -20,3 +20,6 @@ yarn.lock
 !broadcast
 broadcast/*
 broadcast/*/31337/
+
+# security scan working paper (internal only, must not ship)
+audit_kai/worksheet.md

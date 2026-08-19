@@ -1,0 +1,9 @@
+{
+  "scan_date": "2026-08-19T01:10:01.970858",
+  "project_path": "/Users/kai/BSOS/isle-enterprise-contract",
+  "git_commit": "3e438e336fe53050d0921a221dc43519cb13c46c",
+  "solc_version": "0.8.24",
+  "slither_version": "0.11.4",
+  "forge_version": "forge Version: 1.7.1",
+  "dependencies": []
+}
