@@ -34,7 +34,11 @@
       "description": "Reentrancy in LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289): External calls: - IERC20(asset).safeTransferFrom(msg.sender,address(this),principalAndInterest_) (contracts/LoanManager.sol#264) - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - returndata = address(token).functionCall(data,SafeERC20: low-level call failed) (modules/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#122) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) - IERC20(asset_).safeTransfer(_pool(),principal_ + netInterest_) (contracts/LoanManager.sol#875) - IERC20(asset_).safeTransfer(_poolAdmin(),adminFee_) (contracts/LoanManager.sol#876) - IERC20(asset_).safeTransfer(_vault(),protocolFee_) (contracts/LoanManager.sol#877) External calls sending eth: - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) State variables written after the call(s): - paymentIssuanceRate_ = _handlePaymentAccounting(loanId_) (contracts/LoanManager.sol#277) - accountedInterest -= SafeCast.toUint112(_min(accountedInterest,amount_)) (contracts/LoanManager.sol#617) LoanManagerStorage.accountedInterest (contracts/LoanManagerStorage.sol#13) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._compareAndSubtractAccountedInterest(uint256) (contracts/LoanManager.sol#612-618) - LoanManager._handleDefault(uint16,uint256,uint256) (contracts/LoanManager.sol#884-913) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManagerStorage.accountedInterest (contracts/LoanManagerStorage.sol#13) - LoanManager.assetsUnderManagement() (contracts/LoanManager.sol#115-117) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289) - LoanManager.updateAccounting() (contracts/LoanManager.sol#167-170) - delete paymentIdOf[loanId_] (contracts/LoanManager.sol#280) LoanManagerStorage.paymentIdOf (contracts/LoanManagerStorage.sol#20) can be used in cross function reentrancies: - LoanManager._deletePayment(uint16) (contracts/LoanManager.sol#719-722) - LoanManager._distributeClaimedFunds(uint16,uint256,uint256) (contracts/LoanManager.sol#855-878) - LoanManager._handlePaymentAccounting(uint16) (contracts/LoanManager.sol#724-765) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManagerStorage.paymentIdOf (contracts/LoanManagerStorage.sol#20) - LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289) - LoanManager.triggerDefault(uint16) (contracts/LoanManager.sol#419-455) - LoanManager.withdrawFunds(uint16,address) (contracts/LoanManager.sol#292-313) - paymentIssuanceRate_ = _handlePaymentAccounting(loanId_) (contracts/LoanManager.sol#277) - paymentWithEarliestDueDate = next_ (contracts/LoanManager.sol#837) LoanManagerStorage.paymentWithEarliestDueDate (contracts/LoanManagerStorage.sol#10) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._removePaymentFromList(uint256) (contracts/LoanManager.sol#830-849) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManagerStorage.paymentWithEarliestDueDate (contracts/LoanManagerStorage.sol#10) - paymentIssuanceRate_ = _handlePaymentAccounting(loanId_) (contracts/LoanManager.sol#277) - delete payments[paymentId_] (contracts/LoanManager.sol#735) LoanManagerStorage.payments (contracts/LoanManagerStorage.sol#22) can be used in cross function reentrancies: - LoanManager._accountToEndOfPayment(uint256,uint256,uint256,uint256) (contracts/LoanManager.sol#699-717) - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._deletePayment(uint16) (contracts/LoanManager.sol#719-722) - LoanManager._distributeClaimedFunds(uint16,uint256,uint256) (contracts/LoanManager.sol#855-878) - LoanManager._handlePaymentAccounting(uint16) (contracts/LoanManager.sol#724-765) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManagerStorage.payments (contracts/LoanManagerStorage.sol#22) - LoanManager.triggerDefault(uint16) (contracts/LoanManager.sol#419-455) - paymentIssuanceRate_ = _handlePaymentAccounting(loanId_) (contracts/LoanManager.sol#277) - sortedPayments[next_].previous = previous_ (contracts/LoanManager.sol#841) - sortedPayments[previous_].next = next_ (contracts/LoanManager.sol#845) - delete sortedPayments[paymentId_] (contracts/LoanManager.sol#848) LoanManagerStorage.sortedPayments (contracts/LoanManagerStorage.sol#23) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._removePaymentFromList(uint256) (contracts/LoanManager.sol#830-849) - LoanManagerStorage.sortedPayments (contracts/LoanManagerStorage.sol#23)",
       "category": "A",
       "dev_note": "成立。`repayLoan`（LoanManager.sol:252）缺少 `nonReentrant`，而同一份合約的 `fundLoan`（:231）與 `removeLoanImpairment`（:368）都有 —— 這是遺漏而非設計。不變量破口確實存在：步驟 4 `_distributeClaimedFunds` 已把 principal 轉進 pool（:875），步驟 5 才把 `principalOut` 減掉（:273），兩者之間 `_totalAssets()`（PoolConfigurator.sol:344 = pool 餘額 + AUM）會重複計入該筆本金，份額價格短暫虛高。逐行確認取得控制權的途徑有二：(a) `asset` 具備 transfer hook（ERC777/ERC1363）；(b) `_poolAdmin()` 或 `_vault()` 為可執行程式碼的地址（:876-877）。現行 `asset` 由 governor 白名單控管且為 USDC，故實際可利用性低，但修法成本只有一個 modifier。",
-      "remediation": "在 `repayLoan` 加上 `nonReentrant` modifier（與 `fundLoan`、`removeLoanImpairment` 一致）。另建議把步驟 5 的 `principalOut` 遞減移到步驟 4 的資金分配之前，讓 `_totalAssets()` 在整筆交易期間都不會重複計入本金。"
+      "remediation": "在 `repayLoan` 加上 `nonReentrant` modifier（與 `fundLoan`、`removeLoanImpairment` 一致）。另建議把步驟 5 的 `principalOut` 遞減移到步驟 4 的資金分配之前，讓 `_totalAssets()` 在整筆交易期間都不會重複計入本金。",
+      "title": "repayLoan 缺少 nonReentrant，重入期間份額價格被墊高",
+      "explanation": "`repayLoan`（LoanManager.sol:252）是借款人還款的入口，流程為收款 → 分配資金 → 更新帳務。同一份合約的 `fundLoan`（:231）與 `removeLoanImpairment`（:368）都帶 `nonReentrant`，唯獨這支沒有，是遺漏而非設計。問題出在步驟順序：步驟 4 的 `_distributeClaimedFunds` 已把本金轉進 pool（:875），步驟 5 才把 `principalOut` 減掉（:273）。這兩步之間，`_totalAssets()`（PoolConfigurator.sol:344 = pool 餘額 + AUM）會把同一筆本金計算兩次。",
+      "impact_detail": "在重入視窗內，`Pool` 的每股淨值被墊高。此時存入的人以偏高的價格買進份額（拿到較少份額），此時贖回的人則以偏高的價格賣出（拿走超額資產），差額由池內其餘存款人承擔。損失規模與該筆貸款本金同量級。此外 `totalAssets()` 是對外報價的基礎，任何以它計價的整合方在該視窗內都會取得錯誤數字。",
+      "proof_of_concept": "需先取得重入控制權，逐行確認途徑有二：(a) `asset` 為具 transfer hook 的代幣（ERC777／ERC1363），還款時的 `safeTransferFrom` 會回呼付款方；(b) `_poolAdmin()` 或 `_vault()` 為合約地址，手續費轉帳（:876-877）觸發其 `receive`／hook。取得控制權後，在步驟 4 與步驟 5 之間回呼 `Pool.deposit` 或 `Pool.redeem`，即以被墊高的份額價格成交。現行 `asset` 由 governor 白名單控管且部署為 USDC（無 hook），故目前不可直接利用；一旦白名單納入具 hook 的代幣，或 poolAdmin／vault 改為合約地址，即成立。"
     },
     {
       "id": "ISL-03",
@@ -52,7 +56,11 @@
       "description": "Reentrancy in LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289): External calls: - IERC20(asset).safeTransferFrom(msg.sender,address(this),principalAndInterest_) (contracts/LoanManager.sol#264) - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - returndata = address(token).functionCall(data,SafeERC20: low-level call failed) (modules/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#122) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) - IERC20(asset_).safeTransfer(_pool(),principal_ + netInterest_) (contracts/LoanManager.sol#875) - IERC20(asset_).safeTransfer(_poolAdmin(),adminFee_) (contracts/LoanManager.sol#876) - IERC20(asset_).safeTransfer(_vault(),protocolFee_) (contracts/LoanManager.sol#877) - IReceivable(loan_.receivableAsset).burnReceivable(loan_.receivableTokenId) (contracts/LoanManager.sol#285) External calls sending eth: - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) State variables written after the call(s): - _updateIssuanceParams(issuanceRate - paymentIssuanceRate_,accountedInterest) (contracts/LoanManager.sol#288) - IssuanceParamsUpdated(domainEnd = block.timestamp.toUint48(),issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) - IssuanceParamsUpdated(domainEnd = payments[earliestPayment_].dueDate,issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) LoanManagerStorage.accountedInterest (contracts/LoanManagerStorage.sol#13) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._compareAndSubtractAccountedInterest(uint256) (contracts/LoanManager.sol#612-618) - LoanManager._handleDefault(uint16,uint256,uint256) (contracts/LoanManager.sol#884-913) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManagerStorage.accountedInterest (contracts/LoanManagerStorage.sol#13) - LoanManager.assetsUnderManagement() (contracts/LoanManager.sol#115-117) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289) - LoanManager.updateAccounting() (contracts/LoanManager.sol#167-170) - _updateIssuanceParams(issuanceRate - paymentIssuanceRate_,accountedInterest) (contracts/LoanManager.sol#288) - IssuanceParamsUpdated(domainEnd = block.timestamp.toUint48(),issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) - IssuanceParamsUpdated(domainEnd = payments[earliestPayment_].dueDate,issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) LoanManagerStorage.domainEnd (contracts/LoanManagerStorage.sol#12) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManagerStorage.domainEnd (contracts/LoanManagerStorage.sol#12) - _updateIssuanceParams(issuanceRate - paymentIssuanceRate_,accountedInterest) (contracts/LoanManager.sol#288) - IssuanceParamsUpdated(domainEnd = block.timestamp.toUint48(),issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) - IssuanceParamsUpdated(domainEnd = payments[earliestPayment_].dueDate,issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) LoanManagerStorage.issuanceRate (contracts/LoanManagerStorage.sol#16) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._handleDefault(uint16,uint256,uint256) (contracts/LoanManager.sol#884-913) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManager.accruedInterest() (contracts/LoanManager.sol#109-112) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManagerStorage.issuanceRate (contracts/LoanManagerStorage.sol#16) - LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289) - LoanManager.updateAccounting() (contracts/LoanManager.sol#167-170)",
       "category": "A",
       "dev_note": "成立。`repayLoan`（LoanManager.sol:252）缺少 `nonReentrant`，而同一份合約的 `fundLoan`（:231）與 `removeLoanImpairment`（:368）都有 —— 這是遺漏而非設計。不變量破口確實存在：步驟 4 `_distributeClaimedFunds` 已把 principal 轉進 pool（:875），步驟 5 才把 `principalOut` 減掉（:273），兩者之間 `_totalAssets()`（PoolConfigurator.sol:344 = pool 餘額 + AUM）會重複計入該筆本金，份額價格短暫虛高。逐行確認取得控制權的途徑有二：(a) `asset` 具備 transfer hook（ERC777/ERC1363）；(b) `_poolAdmin()` 或 `_vault()` 為可執行程式碼的地址（:876-877）。現行 `asset` 由 governor 白名單控管且為 USDC，故實際可利用性低，但修法成本只有一個 modifier。 本筆與 ISL-02 為 Slither 對同一函式不同狀態變數各報一次，同一個修法一併涵蓋。",
-      "remediation": "同 ISL-02，單一 `nonReentrant` modifier 即同時涵蓋兩筆。"
+      "remediation": "同 ISL-02，單一 `nonReentrant` modifier 即同時涵蓋兩筆。",
+      "title": "repayLoan 缺少 nonReentrant（同一函式的另一組狀態變數）",
+      "explanation": "與 ISL-02 為同一個缺陷：`repayLoan`（LoanManager.sol:252）缺少 `nonReentrant`。Slither 對同一函式的不同狀態變數各報一次，故產生兩筆發現。成因、影響與修法均與 ISL-02 相同。",
+      "impact_detail": "同 ISL-02：重入視窗內份額價格被墊高，存入方與贖回方分別以錯誤價格成交，差額由其餘存款人承擔。",
+      "proof_of_concept": "同 ISL-02：需 `asset` 具 transfer hook，或 `_poolAdmin()`／`_vault()` 為合約地址，於步驟 4、5 之間回呼 `Pool` 的存贖函式。單一 `nonReentrant` modifier 即同時封閉兩筆。"
     },
     {
       "id": "ISL-04",
@@ -88,7 +96,11 @@
       "description": "PoolConfigurator._handleCover(uint256) (contracts/PoolConfigurator.sol#382-392) ignores return value by IERC20(asset).transfer(pool,coverAmount_) (contracts/PoolConfigurator.sol#389)",
       "category": "A",
       "dev_note": "成立。`_handleCover`（PoolConfigurator.sol:389）對 `asset` 使用原生 `transfer` 並忽略回傳值，而同一份合約其餘所有 `asset` 操作都走 SafeERC20（:185、:247、:256）—— 明顯的遺漏。`asset` 是 governor 白名單的任意 ERC20，兩種常見代幣都會出問題：(a) 回傳 false 而不 revert 的代幣 → `poolCover -= coverAmount_`（:387）已先扣減，cover 帳面減少但資金沒動，差額無法回復；(b) 完全不回傳資料的代幣（USDT 型）→ OZ `IERC20.transfer` 解碼空回傳值會 revert，使 `triggerDefault` 全面卡死、無法認列違約。",
-      "remediation": "改用 `IERC20(asset).safeTransfer(pool, coverAmount_)`（本檔已 `using SafeERC20 for IERC20`，無需新增 import）。並建議把 `poolCover -= coverAmount_` 移到轉帳成功之後。"
+      "remediation": "改用 `IERC20(asset).safeTransfer(pool, coverAmount_)`（本檔已 `using SafeERC20 for IERC20`，無需新增 import）。並建議把 `poolCover -= coverAmount_` 移到轉帳成功之後。",
+      "title": "_handleCover 以原生 transfer 動用第一損失準備，回傳值未檢查",
+      "explanation": "`_handleCover`（PoolConfigurator.sol:389）在觸發違約時把第一損失準備（pool cover）撥給 pool，用的是原生 `transfer` 且忽略回傳值。同一份合約其餘所有 `asset` 操作都走 SafeERC20（:185、:247、:256），此處是明顯遺漏。`asset` 是 governor 白名單的任意 ERC20，不保證失敗時 revert。",
+      "impact_detail": "兩種常見代幣各自造成不同後果：(a) 回傳 false 而不 revert 的代幣 —— `poolCover -= coverAmount_`（:387）已先扣減，帳面準備金減少但資金並未轉出，差額無法回復，等同憑空蒸發一筆準備金；(b) 完全不回傳資料的代幣（USDT 型）—— OZ 的 `IERC20.transfer` 解碼空回傳值會 revert，使 `triggerDefault` 全面卡死，違約無法認列，損失無法從準備金吸收。後者發生的時機正是池子最需要違約流程的時候。",
+      "proof_of_concept": "不需要攻擊者，由代幣選擇決定：governor 將白名單納入回傳 false 型或無回傳值型的 ERC20 作為 pool asset，隨後任一筆貸款走到 `triggerDefault` → `_handleCover`，即分別重現 (a) 準備金帳實不符或 (b) 違約流程 revert。以 USDC 部署時不觸發。"
     },
     {
       "id": "ISL-06",
@@ -1903,7 +1915,10 @@
       "status": "待處理",
       "scenario": "L9",
       "remediation": "在 LoanManager.sol:589 之後補上 `domainStart = SafeCast.toUint48(domainStart_);`，並保留第 594 行末尾的 `domainStart = block.timestamp`（負責迴圈未進入的情形）。合約改動之外另需：以 `upgradeToAndCall` 原子升級（見 ISL-114）、在 migration 內以「所有存續 payment 的應計總和」即時重算並沖銷存量差額（不可寫死金額）、發專用事件供索引器下修 `_prevRevenue`。詳見 tests/integration/concrete/loan-manager/poc/README.md 第 5 節。",
-      "source": "manual"
+      "source": "manual",
+      "explanation": "`_advanceGlobalPaymentAccounting()`（LoanManager.sol:588-594）負責把「上次結算到現在」的應計利息入帳。迴圈結束時應寫回 `domainStart`、`domainEnd`、`issuanceRate` 三個變數，本專案自 Maple 手工移植時漏抄 `domainStart` 這一行。結果是同一段期間被記兩次：迴圈已用**全額** issuance rate 把「舊 domainStart → 最後處理的到期日」整段入帳（其中含尚未逾期 payment 的份額），第 593 行的 `accruedInterest()` 又用**縮減後**的 rate 配上**尚未更新**的 `domainStart`，把「舊 domainStart → 現在」整段再記一次。重疊區間的未逾期 payment 因此被入帳兩次。",
+      "impact_detail": "每次觸發多記的金額為「未逾期 payment 的 issuanceRate 總和 × (最後處理的到期日 − 上次結算時點)」，且**無任何沖銷機制**（`_compareAndSubtractAccountedInterest` 只防下溢）。虛增的利息進入 `accountedInterest` → `assetsUnderManagement()` → `Pool.totalAssets()` → 份額價格，永久累積。存款人依此價格贖回會拿走不存在的資產，先贖回者的超額由後贖回者承擔；帳面資產淨值與實際可回收債權長期背離。實測本案已累積約 $3,281 無真實債權對應。",
+      "proof_of_concept": "已以測試實證：`tests/integration/concrete/loan-manager/poc/AccountingBugs.t.sol` 的 `test_PoC_Issue1_MixedLate_DoubleCountsInterest`。情境為兩筆不同到期日的貸款、其中一筆逾期，正確值 2,301,369,860 對實際值 3,287,671,230，多記 986,301,370（USDC 6 位小數），量級恰等於 `rateB × (dueA − start)` 的公式預測（誤差 2 wei 內）。對照組 `test_PoC_Issue1_AllLate_IsUnaffected` 顯示全部逾期時迴圈把 issuanceRate 歸零、`accruedInterest()` 於 :111 短路回傳 0，帳是乾淨的 —— 只有混合逾期狀態出錯，這也是它長期未被發現的原因。"
     },
     {
       "id": "ISL-106",
@@ -1920,7 +1935,10 @@
       "status": "待處理",
       "scenario": "L9",
       "remediation": "恢復 `min(block.timestamp, domainEnd)` 上限。**必須同時夾 `accrualEnd_ <= domainStart_` 的下界**：修好 ISL-105 後 `domainStart` 會被推進到最後處理的到期日，而 `domainEnd` 在無其他 payment 時被設為 `block.timestamp`，兩者可能相等或倒置；underflow 會讓 `accruedInterest()` revert，而它被 `assetsUnderManagement()` → `Pool.totalAssets()` 呼叫，一旦 revert 整個池子的存提款全數卡死，後果比原缺陷更嚴重。完整 diff 見 poc/README.md 第 5.2 節。",
-      "source": "manual"
+      "source": "manual",
+      "explanation": "`accruedInterest()`（LoanManager.sol:109-112）以 `issuanceRate × (block.timestamp − domainStart)` 計算尚未入帳的應計利息。上游 Maple 在同一函式帶有 `_min(block.timestamp, domainEnd)` 上限，移植時被移除，因此時間項不再受到期日封頂：只要沒有任何交易觸發結算，這個值會隨時間無上限成長，即使所有貸款都已到期、不應再產生利息。",
+      "impact_detail": "份額價格在無交易期間持續虛增，且幅度無上界。實測到期日當下為 986,301,368，60 天後為 2,958,904,106（應凍結在前者），425 天後超過三倍以上，`pool.totalAssets()` 一併被墊高。在此期間贖回的存款人以虛高價格取走資產，存入的人則買貴；池子越冷清、偏離越大。誤差會在下一次狀態變更時歸零，故為暫時性而非永久累積 —— 但「暫時」的長度等於下一筆交易的間隔。",
+      "proof_of_concept": "已以測試實證：`test_PoC_Issue2_AccruedInterestGrowsPastDueDate` 斷言上述三個時點的數值與 `pool.totalAssets()` 同步被墊高；`test_PoC_Issue2_SelfCorrectsOnNextStateChange` 確認誤差在下一次結算歸零。重現方式為撥款後不進行任何交易、單純推進區塊時間，再讀 `accruedInterest()`。"
     },
     {
       "id": "ISL-107",
@@ -1937,7 +1955,10 @@
       "status": "待處理",
       "scenario": "L11",
       "remediation": "在兩個 setter 加上界檢查，且必須檢查**合計**：`setAdminFee` 內驗證 `adminFee_ + globals.protocolFee() <= HUNDRED_PERCENT`，`setProtocolFee` 內同理；或在 `_queuePayment` 以 `_min(feeRate_, HUNDRED_PERCENT)` 兜底。建議兩者都做，並把合理上限（例如 50%）寫成常數。",
-      "source": "manual"
+      "source": "manual",
+      "explanation": "`_queuePayment`（LoanManager.sol:770-775）取 `feeRate_ = protocolFee_ + adminFee_` 後呼叫 `_getNetInterest(interest_, feeRate_)`，其實作為 `interest_ * (HUNDRED_PERCENT - feeRate_) / HUNDRED_PERCENT`（:680）。兩個費率的 setter —— `IsleGlobals.setProtocolFee`（IsleGlobals.sol:90，onlyGovernor）與 `PoolConfigurator.setAdminFee`（PoolConfigurator.sol:144，onlyAdminOrGovernor）—— 都沒有任何上下界檢查。`uint24` 上限 16,777,215 相對於 `HUNDRED_PERCENT = 1e6` 等於 1677%，DataTypes.sol:9 的註解「uint24 adminFee; max = 1.6e7 (1600%)」顯示開發者已意識到型別容許超過 100%，但未加檢查。",
+      "impact_detail": "任一方或兩方合計超過 100% 時，`HUNDRED_PERCENT - feeRate_` 在 Solidity 0.8.19 下溢 revert，`fundLoan` 全面失效直到費率被調回。既有 payment 不受影響（費率在建立時快照，超過 100% 的組合根本無法建立成功），故不影響還款路徑，但新撥款完全癱瘓：借款人無法取得資金，池內閒置流動性無法產生收益，且在費率被察覺並調回之前無法自行恢復。",
+      "proof_of_concept": "不需要攻擊者，由設定失誤觸發：governor 呼叫 `setProtocolFee(600000)`（60%）、pool admin 呼叫 `setAdminFee(500000)`（50%），兩者各自看似合理，合計 110% 超過上限。隨後任一筆 `fundLoan` 進入 `_queuePayment` 即 revert。此問題與 postmortem 第 6.2 節第 6 點所述一致。"
     },
     {
       "id": "ISL-108",
@@ -1954,7 +1975,10 @@
       "status": "待處理",
       "scenario": "L11",
       "remediation": "在 `setMaxCoverLiquidation` 加 `if (maxCoverLiquidation_ > HUNDRED_PERCENT) revert ...`；並在 `_handleCover` 以 `_min(availableCover_, poolCover)` 兜底。",
-      "source": "manual"
+      "source": "manual",
+      "explanation": "`_handleCover`（PoolConfigurator.sol:382-392）計算可動用的第一損失準備 `availableCover_ = poolCover * _config.maxCoverLiquidation / HUNDRED_PERCENT`。`setMaxCoverLiquidation` 沒有上限檢查，該值可被設為超過 100%，使 `availableCover_` 大於實際持有的 `poolCover`；後續扣減時下溢 revert。",
+      "impact_detail": "`triggerDefault` 整體不可用 —— 違約無法認列，損失無法從準備金吸收，逾期部位持續掛在帳上並繼續以原 issuance rate 計息，進一步扭曲資產淨值。觸發條件為 `maxCoverLiquidation > 1e6` 且 `losses_ > poolCover`，後者在無擔保信貸池是常態（postmortem 記載 53 筆已還款中 52 筆逾期）。失效發生的時機正是最需要違約流程的時候。",
+      "proof_of_concept": "不需要攻擊者，由設定失誤觸發：governor 或 pool admin 呼叫 `setMaxCoverLiquidation` 傳入大於 `HUNDRED_PERCENT`（1e6）的值，例如誤把 100% 寫成 `100`×`1e6`。隨後任一筆損失大於 `poolCover` 的貸款呼叫 `triggerDefault`，即在 `_handleCover` 下溢 revert。"
     },
     {
       "id": "ISL-109",
@@ -1971,7 +1995,10 @@
       "status": "待處理",
       "scenario": "L2",
       "remediation": "把 `createReceivable` 限制為白名單角色（governor、pool admin，或 `isSeller` 名單），或改為需要買方簽章授權。長期建議引入 attestation 機制讓外部可驗證憑證對應真實發票。",
-      "source": "manual"
+      "source": "manual",
+      "explanation": "`Receivable.createReceivable`（Receivable.sol:59-76）鑄造代表一張應收帳款的 ERC-721 憑證，函式上沒有任何 modifier —— 任何地址都可以指定買方、賣方、面額與到期日鑄出一張憑證。合約層面沒有任何機制驗證這張憑證背後真的存在一筆應收帳款。",
+      "impact_detail": "放款路徑本身沒有被打穿（見 PoC），因此不會直接失血。實際影響有三：(a) 任何人可把憑證塞進任意賣方錢包，污染以此 NFT 為準的鏈下對帳與報表；(b) `_tokenIdCounter` 可被無成本灌大；(c) 這是「鏈下事實無法被合約驗證」在本專案最直接的體現 —— 「一張應收帳款存在」這個宣稱在鏈上不需要任何憑據，而整個放款決策建立在這個宣稱之上。",
+      "proof_of_concept": "任意地址直接呼叫 `createReceivable(buyer, seller, faceAmount, repaymentTimestamp, currencyCode)` 即鑄出憑證，無需任何權限。攻擊者無法據此自助取得貸款：已逐行確認 `LoanManager.requestLoan` 要求 `msg.sender == receivableInfo_.buyer`（:194、:943-947），`_revertIfInvalidReceivable`（:949-965）另外驗證 `poolConfigurator_.buyer() == buyer_` 與 `isSeller(seller_)`，撥款還需 `onlyPoolAdmin`。故可利用面限於上述三項污染效果。"
     },
     {
       "id": "ISL-110",
@@ -1988,7 +2015,10 @@
       "status": "待處理",
       "scenario": "L11",
       "remediation": "在 `requestLoan` 對 `gracePeriod_` 設合理上限（例如 90 days），對 `rates_` 兩個元素設上下限；或改為由 pool admin 在 `fundLoan` 時指定這三個參數，讓借款人只能提出申請、不能決定保護條款。",
-      "source": "manual"
+      "source": "manual",
+      "explanation": "`requestLoan`（LoanManager.sol:173-228）由借款人自行提交貸款參數，其中包含 `gracePeriod`（寬限期）。這個參數的用途是保護出借方 —— `triggerDefault` 必須等到期日加上寬限期之後才能觸發。由借款人決定一個用來限制出借方何時能宣告其違約的參數，方向本身就是反的，而合約對其上限沒有任何檢查。",
+      "impact_detail": "借款人提交一個極大的 `gracePeriod`（例如 `2^255`），該筆貸款即永遠無法被觸發違約：本金無法透過違約流程回收，第一損失準備無法動用，該部位永久掛在 `principalOut` 上並持續計息，使資產淨值長期虛增。存款人面對的是一筆帳面存在、實質永遠無法處置的債權。",
+      "proof_of_concept": "借款人呼叫 `requestLoan` 時傳入極大的 `gracePeriod_`，等待 pool admin 於 `fundLoan` 核准撥款。已確認唯一的把關是 `fundLoan` 的 `onlyPoolAdmin` 人工審核，而 pool admin 在核准時看到的是一份參數清單，`gracePeriod = 2^255` 這種值不必然會被注意到，鏈上沒有任何自動阻擋。此模式對應本次領域調查歸納的 D-CREDIT-02（借款人自訂參數被用於保護出借方的檢查），詳見 audit/DOMAIN_RESEARCH.md 第 3 節。"
     },
     {
       "id": "ISL-111",
@@ -2005,7 +2035,10 @@
       "status": "待處理",
       "scenario": "L2",
       "remediation": "在 `requestLoan` 檢查該 tokenId 是否已有未結清的貸款（新增 `mapping(address => mapping(uint256 => uint16)) activeLoanOfReceivable`），或要求申請時即把 NFT 托管給 LoanManager。",
-      "source": "manual"
+      "source": "manual",
+      "explanation": "`requestLoan`／`fundLoan`（LoanManager.sol:173-249）沒有記錄某張應收帳款憑證是否已經被用來支撐一筆尚未結清的貸款，也沒有在申請時把 NFT 托管起來。同一個 tokenId 因此可以重複提出貸款申請。",
+      "impact_detail": "第二筆貸款撥款後，資金已離開 pool 並計入 `principalOut`，但沒有對應的可提領債權 —— 帳務失真而非直接盜取。已確認損失被第二道機制部分擋住：`withdrawFunds` 要求 `safeTransferFrom(msg.sender, address(this), tokenId)`（:303），第一筆提領後 NFT 已易主，第二筆無法提領，資金會滯留在 LoanManager 而非落入攻擊者手中。且需要 pool admin 對同一張憑證重複撥款才會發生，故評為 Low。",
+      "proof_of_concept": "以同一個 receivable tokenId 呼叫兩次 `requestLoan`，取得兩個 loanId；pool admin 對兩者皆執行 `fundLoan`。第一筆 `withdrawFunds` 成功並取走 NFT，第二筆 `withdrawFunds` 因 NFT 已不在借款人手上而 revert，該筆資金滯留於 LoanManager，`principalOut` 卻已計入。"
     },
     {
       "id": "ISL-112",
@@ -2022,7 +2055,10 @@
       "status": "待處理",
       "scenario": "L11",
       "remediation": "對 `cycleDuration_` 設上限（例如 90 days）與下限；並考慮加入「設定變更不得延後既有 pending 請求的既定視窗」的保護。",
-      "source": "manual"
+      "source": "manual",
+      "explanation": "`setExitConfig`（WithdrawalManager.sol:105-158）設定贖回的週期長度 `cycleDuration`，贖回必須落在對應週期的視窗內才能執行。這個參數沒有上限檢查，pool admin 可將其設為極大值，使下一個贖回視窗落在極遠的未來。",
+      "impact_detail": "全體存款人的贖回被實質凍結，且無其他路徑取回底層資產 —— 已逐行確認 `Pool.withdraw` 直接 revert `Pool_WithdrawalNotImplemented`（:193），`redeem` 必經 `maxRedeem` → `isInExitWindow`（PoolConfigurator.sol:310-315）；`removeShares` 只能取回 pool share 憑證，換不回底層資產。此為單一角色即可執行的資金凍結。",
+      "proof_of_concept": "pool admin 呼叫 `setExitConfig` 傳入極大的 `cycleDuration_`（例如 `type(uint64).max`）。既有與新增的贖回請求其視窗起點被推至極遠未來，所有 `redeem` 因 `isInExitWindow` 為假而 revert。此模式對應本次領域調查歸納的 D-CREDIT-03，詳見 audit/DOMAIN_RESEARCH.md 第 3 節。"
     },
     {
       "id": "ISL-113",
@@ -2037,7 +2073,11 @@
       "category": "B",
       "dev_note": "此為 audit/DOMAIN_RESEARCH.md 的 D-RWA-02（來源：rwa.md，last_reviewed 2026-08-12），該條記載 2025 年 RWA 領域最大宗事故即為單一 deployer 私鑰被取得後呼叫 `upgradeToAndCall` 替換 implementation，損失約 850 萬美元。本專案的存取控制**實作正確**（已逐一確認 `onlyGovernor` 的比較對象與 `IsleGlobals.governor()` 一致，無 tx.origin、無恆真條件），問題在於權力邊界本身。列為 B 而非 A，因為這是明確的產品設計選擇而非程式缺陷 —— 但緩解措施屬於部署與營運層，必須在鏈下落實並向存款人揭露。",
       "status": "已確認接受風險（緩解措施待鏈下落實）",
-      "source": "manual"
+      "source": "manual",
+      "explanation": "`Governable` 只維護單一 `address governor`（Governable.sol:15），採兩段式移轉但無 timelock、無門檻、無第二人核准。該單一位址可執行：(a) `setAddress(LOAN_MANAGER, x)`（PoolAddressesProvider.sol:145）把 loan manager 換成任意地址；(b) `setLoanManagerImpl` / `setPoolConfiguratorImpl` / `setWithdrawalManagerImpl` / `setAddressAsProxy` 替換任一核心 implementation；(c) `setIsleGlobals` 連同 governor 自身一起換掉；(d) 升級 IsleGlobals 與 Receivable（UUPS）。存取控制的**實作是正確的** —— 已逐一確認 `onlyGovernor` 的比較對象與 `IsleGlobals.governor()` 一致，無 tx.origin、無恆真條件；問題在於權力邊界本身。",
+      "impact_detail": "單一私鑰即等同池內全部資金的控制權。以 (a) 為例：`Pool` 建構子已對 `PoolConfigurator` 授權 `type(uint256).max`（Pool.sol:36），而 `requestFunds` 只檢查 `msg.sender == loanManager_`（PoolConfigurator.sol:175），因此把 loan manager 指向攻擊者控制的地址後，即可一次提走 pool 全部流動性。合約層沒有任何延遲或第二人核准可供存款人察覺並退出。",
+      "proof_of_concept": "取得 governor 私鑰後，單筆交易呼叫 `PoolAddressesProvider.setAddress(LOAN_MANAGER, attacker)`，接著以該地址呼叫 `PoolConfigurator.requestFunds(pool.totalAssets())` 即提走全部流動性。這正是 audit/DOMAIN_RESEARCH.md 的 D-RWA-02（來源：rwa.md，last_reviewed 2026-08-12）所記載的模式：2025 年 RWA 領域最大宗事故即為單一 deployer 私鑰被取得後呼叫 `upgradeToAndCall` 替換 implementation，損失約 850 萬美元。",
+      "remediation": "短期（營運層，不需改合約）：將 governor 位址移轉至多簽錢包（建議 3-of-5 以上，簽署人分散於不同組織與金鑰保管方式），並把此安排連同簽署人組成向存款人公開揭露。長期（合約層）：在 `Governable` 加入 timelock —— 特權操作分為提案與執行兩段，中間留足夠的公告期讓存款人有時間退出；並對 `setAddress(LOAN_MANAGER, ...)` 這類可直接導致資金外流的操作設定較長的延遲。"
     },
     {
       "id": "ISL-114",
@@ -2054,7 +2094,10 @@
       "status": "待處理",
       "scenario": "L7",
       "remediation": "在三份合約的 `initialize` 加入呼叫者檢查（`msg.sender == address(ADDRESSES_PROVIDER)` 或 proxy admin），使搶跑不可行；並在 `setXxxImpl` 系列函式要求 `params.length != 0`，把「必須原子升級」從營運紀律變成合約強制。",
-      "source": "manual"
+      "source": "manual",
+      "explanation": "`VersionedInitializable`（libraries/upgradability/VersionedInitializable.sol:37-60）以 `revision > lastInitializedRevision` 作為 `initialize` 的守門條件，函式本身不檢查呼叫者。升級的原子性完全依賴呼叫者在 `setXxxImpl` 傳入正確的 `params` —— 若傳入空的 `params`，implementation 被換上但 `initialize` 未被呼叫，該函式在新 revision 下對任何人開放。",
+      "impact_detail": "在升級與初始化之間的區塊窗口內，任何人可搶先呼叫 `initialize` 並填入自己選定的參數，取得該合約的控制權。目前**尚未可利用**：三份合約的 revision 皆為 `0x1`，代理上的 `lastInitializedRevision` 已是 1，條件為假，再次呼叫會 revert。風險在下一次升級 —— 而 postmortem 第 6.1 節第 2 點規劃的 ISL-105/106 修復正是一次 revision 升到 2 的升級，屆時此窗口會真實存在。這是「修復缺陷的那次操作本身帶著新風險」的典型情況，必須在執行該修復之前先處理。",
+      "proof_of_concept": "條件：下一次升級時 `setXxxImpl` 以空的 `params` 呼叫（或以非原子方式先換 implementation 再另發交易 initialize）。攻擊者監看 mempool，於 implementation 更換的交易之後、初始化交易之前，自行呼叫該代理的 `initialize` 並傳入自選參數，即以新 revision 完成初始化並取得控制權。"
     },
     {
       "id": "ISL-115",
@@ -2069,7 +2112,11 @@
       "category": "B",
       "dev_note": "對照 audit/DOMAIN_RESEARCH.md 的 D-RWA-05（來源：rwa.md）四個標準查證問題，四項皆為否。本次 postmortem 正是這個缺口的實證：`accountedInterest` 累積了 $3,281 沒有任何真實債權對應，而系統本身沒有任何機制會發現 —— 是靠人工重放鏈上事件、與獨立重算的應計總和比對才查出來的。列為 Informational 是因為這是機制缺失而非可被直接利用的漏洞，但它決定了「下一次帳對不上時要多久才會現形」。",
       "status": "待處理（建議納入產品路線圖）",
-      "source": "manual"
+      "source": "manual",
+      "explanation": "系統沒有任何機制可讓外部獨立驗證「流通份額所對應的債權真實存在且金額正確」。`Receivable` 的憑證可由任何人鑄造（見 ISL-109），應計利息由合約自行累加而無對照來源，資產淨值的正確性完全依賴合約內部帳務自身正確。對照 audit/DOMAIN_RESEARCH.md 的 D-RWA-05（來源：rwa.md）四個標準查證問題，四項皆為否。",
+      "impact_detail": "帳務一旦出錯，系統本身不會發現，也沒有任何外部方能在不取得內部資料的情況下察覺。本次 postmortem 正是這個缺口的實證：`accountedInterest` 累積了 $3,281 沒有任何真實債權對應，是靠人工重放鏈上事件、與獨立重算的應計總和比對才查出來的。此缺口決定的不是「會不會出錯」，而是「下一次帳對不上時要多久才會現形」。",
+      "proof_of_concept": "非可被主動利用的漏洞，而是機制缺失。其存在已由本次事件實證：ISL-105 造成的重複入帳在鏈上持續累積且被計入份額價格，期間沒有任何合約層機制、事件或對外介面會揭露帳實不符；發現途徑是人工重放事件並獨立重算應計總和。",
+      "remediation": "短期：對外發布可獨立驗證的儲備報告 —— 定期公布全部存續 payment 的清單與應計總和，讓外部可用鏈上事件自行重算並與 `assetsUnderManagement()` 比對。中期：在合約層加入不變量檢查，例如於結算路徑斷言 `accountedInterest` 不超過所有存續 payment 的理論上限，違反時發出事件而非靜默累積。長期：引入 attestation 機制，使 `Receivable` 憑證對應的真實發票可被第三方背書驗證（與 ISL-109 的長期建議同一方向）。"
     }
   ],
   "scenario_coverage": {
