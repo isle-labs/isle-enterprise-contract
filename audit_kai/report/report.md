@@ -105,6 +105,8 @@
 2. **逐筆判讀與補充比對**：對掃描產出的每一筆發現判定其處置分類並記錄判斷依據，工具回報的嚴重度與本報告呈現的嚴重度若有落差則逐筆附上調整理由；同時對範圍內每一份合約，逐條比對內部維護的邏輯漏洞情境庫（權限檢查實作、未保護的狀態變更、旗標未落實、價格源可操縱、記帳與實際結果脫鉤、簽章雜湊綁定範圍、可組合模組的交互失效等），並依受檢系統所屬業務領域比對該領域公開已知的事故模式，補靜態規則無法涵蓋的業務邏輯層級問題。
 3. **產出與覆核**：彙整為本報告，並對共用同一判斷理由的發現群組進行抽查。
 
+本次掃描的工具版本：Slither 0.11.4、solc 0.8.24、Foundry 1.7.1。重新掃描時使用相同版本，方能與本報告的數字逐筆對照。
+
 ### 範圍限制
 
 本報告由本檢測工具產出，解讀時請留意以下範圍限制：
@@ -241,13 +243,13 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 ## 檢測結果
 
-本次共 115 項發現，本章逐筆列出其中 33 項。其餘 82 項為低嚴重度（Low／Informational）且經判定為可接受風險或誤報者，逐筆紀錄保留於工作底稿，可依需要調閱。
+本次共 115 項發現，本章逐筆列出其中 16 項。其餘 99 項為經查證為誤報者，以及低嚴重度且經判定為可接受風險者，逐筆紀錄保留於工作底稿，可依需要調閱。
 
 | 嚴重度 | 筆數 |
 |---|---|
 | Critical | 0 |
-| High | 5 |
-| Medium | 26 |
+| High | 1 |
+| Medium | 13 |
 | Low | 1 |
 | Informational | 1 |
 
@@ -255,7 +257,6 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 |---|---|
 | 已確認需修復（A） | 12 |
 | 已知風險但可接受（B） | 4 |
-| 誤報（C） | 17 |
 
 編號 `[H-1]` 為嚴重度代碼（C 危急／H 高／M 中／L 低／I 資訊）加該嚴重度內的序號，僅指派給經判定確實成立、需要處置的發現；經查證為誤報或已接受之風險沿用掃描編號。
 
@@ -469,204 +470,6 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 **接受理由**：對照 audit/DOMAIN_RESEARCH.md 的 D-RWA-05（來源：rwa.md）四個標準查證問題，四項皆為否。本次 postmortem 正是這個缺口的實證：`accountedInterest` 累積了 $3,281 沒有任何真實債權對應，而系統本身沒有任何機制會發現 —— 是靠人工重放鏈上事件、與獨立重算的應計總和比對才查出來的。列為 Informational 是因為這是機制缺失而非可被直接利用的漏洞，但它決定了「下一次帳對不上時要多久才會現形」。
 
 **建議修法**：短期：對外發布可獨立驗證的儲備報告 —— 定期公布全部存續 payment 的清單與應計總和，讓外部可用鏈上事件自行重算並與 `assetsUnderManagement()` 比對。中期：在合約層加入不變量檢查，例如於結算路徑斷言 `accountedInterest` 不超過所有存續 payment 的理論上限，違反時發出事件而非靜默累積。長期：引入 attestation 機制，使 `Receivable` 憑證對應的真實發票可被第三方背書驗證（與 [M-7] 的長期建議同一方向）。
-
-### 誤報（C）
-
-#### ISL-01｜arbitrary-send-erc20
-
-**嚴重度**：High
-**位置**：`contracts/PoolConfigurator.sol:169-192`
-
-**說明**：PoolConfigurator.requestFunds(uint256) (contracts/PoolConfigurator.sol#169-192) uses arbitrary from in transferFrom: IERC20(asset_).safeTransferFrom(pool_,msg.sender,principal_) (contracts/PoolConfigurator.sol#185)
-
-**判斷依據**：誤報。`from` 不是任意地址而是 `pool` 這個 storage 變數（PoolConfigurator.sol:171、185），授權來自 Pool 建構子對 configurator 的 `approve(configurator, type(uint256).max)`（Pool.sol:36），屬協定內部的既定信任關係。呼叫者另受 PoolConfigurator.sol:175-177 的 `msg.sender != loanManager_` 檢查限制。真正的風險不在此處的 `from`，而在 `loanManager_` 來源可被 governor 改寫，已另立 [M-11] 追蹤。
-
-#### ISL-04｜unchecked-transfer
-
-**嚴重度**：High
-**位置**：`contracts/WithdrawalManager.sol:235-285`
-
-**說明**：WithdrawalManager.processExit(uint256,address) (contracts/WithdrawalManager.sol#235-285) ignores return value by IERC20(_pool()).transfer(owner_,redeemableShares_) (contracts/WithdrawalManager.sol#264)
-
-**判斷依據**：誤報。`_pool()` 回傳的是本協定自己由 PoolDeployer 部署的 `Pool` 合約（PoolConfigurator.sol:104-105、109），它繼承 OZ 的 `ERC20`，`transfer` 失敗時 revert、成功時固定回傳 `true`，不存在「回傳 false 而不 revert」的路徑。地址來源鏈為 `_poolConfigurator().pool()`，非外部可控。仍建議為一致性改用 `safeTransfer`。
-
-#### ISL-06｜unprotected-upgrade
-
-**嚴重度**：High
-**位置**：`contracts/Receivable.sol:22-119`
-
-**說明**：Receivable (contracts/Receivable.sol#22-119) is an upgradeable contract that does not protect its initialize functions: Receivable.initialize(address) (contracts/Receivable.sol#49-56). Anyone can delete the contract with: UUPSUpgradeable.upgradeTo(address) (modules/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol#68-71)UUPSUpgradeable.upgradeToAndCall(address,bytes) (modules/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol#83-86)
-
-**判斷依據**：誤報。Slither 的判定前提是「攻擊者可對 implementation 直接呼叫 initialize 取得控制權，再經 UUPS 升級路徑 selfdestruct 或改寫」。本專案的 OZ 版本為 v4.9.2，`UUPSUpgradeable.upgradeTo` 與 `upgradeToAndCall` 都帶 `onlyProxy` modifier（modules/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol:68、83），直接對 implementation 呼叫時 `address(this) == __self` 會 revert —— 升級路徑不可達，攻擊鏈的第二步就斷了。已逐一確認兩份合約皆無其他 `selfdestruct`、`delegatecall` 或可提領資產的函式，implementation 本身也不持有任何資產。 針對 Receivable 另外確認：implementation 上的 `isleGlobal` 為 0，`_authorizeUpgrade` 的 `governor()`（Receivable.sol:90-92）會對 address(0) 外部呼叫而 revert，構成第二道阻擋。仍建議補上 `constructor() { _disableInitializers(); }` 作為縱深防禦。
-
-#### ISL-07｜unprotected-upgrade
-
-**嚴重度**：High
-**位置**：`contracts/IsleGlobals.sol:12-125`
-
-**說明**：IsleGlobals (contracts/IsleGlobals.sol#12-125) is an upgradeable contract that does not protect its initialize functions: IsleGlobals.initialize(address) (contracts/IsleGlobals.sol#45-51). Anyone can delete the contract with: UUPSUpgradeable.upgradeTo(address) (modules/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol#68-71)UUPSUpgradeable.upgradeToAndCall(address,bytes) (modules/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol#83-86)
-
-**判斷依據**：誤報。Slither 的判定前提是「攻擊者可對 implementation 直接呼叫 initialize 取得控制權，再經 UUPS 升級路徑 selfdestruct 或改寫」。本專案的 OZ 版本為 v4.9.2，`UUPSUpgradeable.upgradeTo` 與 `upgradeToAndCall` 都帶 `onlyProxy` modifier（modules/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol:68、83），直接對 implementation 呼叫時 `address(this) == __self` 會 revert —— 升級路徑不可達，攻擊鏈的第二步就斷了。已逐一確認兩份合約皆無其他 `selfdestruct`、`delegatecall` 或可提領資產的函式，implementation 本身也不持有任何資產。 針對 IsleGlobals 另外確認：`initializer` 來自自製的 VersionedInitializable，在 implementation 自身 storage 上 `lastInitializedRevision` 確實為 0、可被任意人呼叫一次，但取得的只是一份沒有資產、沒有代理指向、且升級入口被 `onlyProxy` 擋住的孤兒 storage。仍建議在建構子鎖死 initializer。
-
-#### ISL-08｜divide-before-multiply
-
-**嚴重度**：Medium
-**位置**：`contracts/LoanManager.sol:493-511`
-
-**說明**：
-
-- LoanManager._getLateInterest(uint256,uint256,uint256,uint256,uint256) (contracts/LoanManager.sol#493-511) performs a multiplication on the result of a division:
-  - fullDaysLate_ = ((currentTime_ - dueDate_ + (86400 - 1)) / 86400) * 86400 (contracts/LoanManager.sol#508)
-
-**判斷依據**：誤報。`fullDaysLate_ = ((currentTime_ - dueDate_ + 86399) / 86400) * 86400`（LoanManager.sol:508）是刻意的「逾期天數無條件進位到整日」語意，先除後乘正是取整的手段，不是精度損失。此行為與鏈上實測一致：postmortem 以此公式重算 53 筆還款利息，與 `LoanRepaid` 事件分毫不差。
-
-#### ISL-10｜divide-before-multiply
-
-**嚴重度**：Medium
-**位置**：`contracts/LoanManager.sol:513-522`
-
-**說明**：
-
-- LoanManager._getPeriodicInterestRate(uint256,uint256) (contracts/LoanManager.sol#513-522) performs a multiplication on the result of a division:
-  - periodicInterestRate_ = (interestRate_ * (SCALED_ONE / HUNDRED_PERCENT) * interval_) / uint256(31536000) (contracts/LoanManager.sol#521)
-
-**判斷依據**：誤報。`SCALED_ONE / HUNDRED_PERCENT` = 1e18 / 1e6 = 1e12，兩者皆為編譯期常數且整除，不產生任何餘數（LoanManager.sol:521）。Slither 只做語法比對，看不出被除數是常數。
-
-#### ISL-11｜incorrect-equality
-
-**嚴重度**：Medium
-**位置**：`contracts/LoanManager.sol:633-665`
-
-**說明**：
-
-- LoanManager._getDefaultInterestAndFees(uint16,Loan_Types.PaymentInfo) (contracts/LoanManager.sol#633-665) uses a dangerous strict equality:
-  - grossLateInterest_ == 0 (contracts/LoanManager.sol#661)
-
-**判斷依據**：誤報。Slither 的 incorrect-equality 針對的是「以嚴格等值比較餘額或時間戳」，本筆比較的是 `grossLateInterest_ == 0`（LoanManager.sol:661），用途是判別「這筆還款是否為逾期還款」以決定要不要按比例縮放管理費，語意上就是二值判斷，取值來自 `_getLateInterest` 的 `currentTime_ <= dueDate_ → return 0`（:504-506），不是餘額。
-
-#### ISL-12｜incorrect-equality
-
-**嚴重度**：Medium
-**位置**：`contracts/WithdrawalManager.sol:463-469`
-
-**說明**：
-
-- WithdrawalManager._emitProcess(address,uint256,uint256) (contracts/WithdrawalManager.sol#463-469) uses a dangerous strict equality:
-  - sharesToRedeem_ == 0 (contracts/WithdrawalManager.sol#464)
-
-**判斷依據**：誤報。Slither 的 incorrect-equality 針對的是「以嚴格等值比較餘額或時間戳」，本筆比較的是 `sharesToRedeem_ == 0`（WithdrawalManager.sol:464），純粹決定要不要發事件，無任何資金或狀態後果。
-
-#### ISL-13｜incorrect-equality
-
-**嚴重度**：Medium
-**位置**：`contracts/LoanManager.sol:109-112`
-
-**說明**：
-
-- LoanManager.accruedInterest() (contracts/LoanManager.sol#109-112) uses a dangerous strict equality:
-  - issuanceRate_ == 0 (contracts/LoanManager.sol#111)
-
-**判斷依據**：誤報。Slither 的 incorrect-equality 針對的是「以嚴格等值比較餘額或時間戳」，本筆比較的是 `issuanceRate_ == 0`（LoanManager.sol:111），用途是短路避免無謂運算。附帶說明：這一行在 postmortem 中是問題二的所在地，但缺陷是缺少 `_min(block.timestamp, domainEnd)` 上限，與這個等值比較無關；該缺陷已另立 [M-4]。
-
-#### ISL-14｜incorrect-equality
-
-**嚴重度**：Medium
-**位置**：`contracts/WithdrawalManager.sol:292-300`
-
-**說明**：
-
-- WithdrawalManager.isInExitWindow(address) (contracts/WithdrawalManager.sol#292-300) uses a dangerous strict equality:
-  - exitCycleId_ == 0 (contracts/WithdrawalManager.sol#295)
-
-**判斷依據**：誤報。Slither 的 incorrect-equality 針對的是「以嚴格等值比較餘額或時間戳」，本筆比較的是 `exitCycleId_ == 0`（WithdrawalManager.sol:295），`0` 是「無提領請求」的哨兵值（processExit 於 :276 明確寫入 0），不是可被外部操縱的數量。
-
-#### ISL-15｜incorrect-equality
-
-**嚴重度**：Medium
-**位置**：`contracts/WithdrawalManager.sol:452-461`
-
-**說明**：
-
-- WithdrawalManager._emitUpdate(address,uint256,uint256) (contracts/WithdrawalManager.sol#452-461) uses a dangerous strict equality:
-  - lockedShares_ == 0 (contracts/WithdrawalManager.sol#453)
-
-**判斷依據**：誤報。Slither 的 incorrect-equality 針對的是「以嚴格等值比較餘額或時間戳」，本筆比較的是 `lockedShares_ == 0`（WithdrawalManager.sol:453），決定發 `WithdrawalCancelled` 還是 `WithdrawalUpdated`，無資金後果。另已確認此處的早退同時保護了 `getWindowAtId(0)` 不被呼叫（該路徑會在 getConfigAtId underflow）。
-
-#### ISL-16｜reentrancy-no-eth
-
-**嚴重度**：Medium
-**位置**：`contracts/LoanManager.sol:231-249`
-
-**說明**：
-
-- Reentrancy in LoanManager.fundLoan(uint16) (contracts/LoanManager.sol#231-249):
-- External calls:
-  - IPoolConfigurator(_poolConfigurator()).requestFunds(principal_) (contracts/LoanManager.sol#238)
-- State variables written after the call(s):
-  - loanStorage_.startDate = block.timestamp (contracts/LoanManager.sol#242)
-  - loanStorage_.drawableFunds = principal_ (contracts/LoanManager.sol#243)
-  - IssuanceParamsUpdated(domainEnd = payments[earliestPayment_].dueDate,issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605)
-  - paymentWithEarliestDueDate = paymentId_ (contracts/LoanManager.sol#819)
-  - payments[paymentId_] = Loan_Types.PaymentInfo({protocolFee:SafeCast.toUint24(protocolFee_),adminFee:SafeCast.toUint24(adminFee_),startDate:SafeCast.toUint48(startDate_),dueDate:SafeCast.toUint48(dueDate_),incomingNetInterest:SafeCast.toUint128(newRate_ * (dueDate_ - startDate_) / PRECISION),issuanceRate:newRate_}) (contracts/LoanManager.sol#780-787)
-  - sortedPayments[paymentId_] = Loan_Types.SortedPayment({previous:current_,next:next_,paymentDueDate:paymentDueDate_}) (contracts/LoanManager.sol#826-827)
-- 可跨函式重入的狀態變數共 7 個（LoanManagerStorage._loans、LoanManagerStorage.accountedInterest、LoanManagerStorage.domainEnd、LoanManagerStorage.issuanceRate、LoanManagerStorage.paymentWithEarliestDueDate、LoanManagerStorage.payments、LoanManagerStorage.sortedPayments），合計可達函式 65 處；完整清單見掃描原始輸出。
-
-**判斷依據**：誤報。`fundLoan`（LoanManager.sol:231）本身帶 `nonReentrant`，Slither 不追蹤自製的 ReentrancyGuardUpgradeable（libraries/ReentrancyGuard.sol:30-39，ERC-7201 命名空間 storage）因此無法辨識。已確認該 modifier 的 `$._status` 讀寫邏輯正確。
-
-#### ISL-18｜reentrancy-no-eth
-
-**嚴重度**：Medium
-**位置**：`contracts/WithdrawalManager.sol:235-285`
-
-**說明**：
-
-- Reentrancy in WithdrawalManager.processExit(uint256,address) (contracts/WithdrawalManager.sol#235-285):
-- External calls:
-  - IERC20(_pool()).transfer(owner_,redeemableShares_) (contracts/WithdrawalManager.sol#264)
-- State variables written after the call(s):
-  - exitCycleId[owner_] = exitCycleId_ (contracts/WithdrawalManager.sol#280)
-  - lockedShares[owner_] = lockedShares_ (contracts/WithdrawalManager.sol#281)
-  - totalCycleShares[exitCycleId_] -= lockedShares_ (contracts/WithdrawalManager.sol#266)
-  - totalCycleShares[exitCycleId_] += lockedShares_ (contracts/WithdrawalManager.sol#274)
-- 可跨函式重入的狀態變數共 3 個（WithdrawalManagerStorage.exitCycleId、WithdrawalManagerStorage.lockedShares、WithdrawalManagerStorage.totalCycleShares），合計可達函式 24 處；完整清單見掃描原始輸出。
-
-**判斷依據**：誤報。`processExit`（WithdrawalManager.sol:235）的外部呼叫是 `IERC20(_pool()).transfer`（:264），對象是本協定自己部署的 OZ ERC20 `Pool`，無 transfer hook、無回呼路徑。呼叫者另受 `onlyPoolConfigurator` 限制（:241）。
-
-#### ISL-19｜uninitialized-local
-
-**嚴重度**：Medium
-**位置**：`contracts/LoanManager.sol:556`
-
-**說明**：LoanManager._advanceGlobalPaymentAccounting().accountedInterest_ (contracts/LoanManager.sol#556) is a local variable never initialized
-
-**判斷依據**：誤報。`uint256 accountedInterest_;`（LoanManager.sol:556）刻意以預設值 0 起算，作為 while 迴圈的累加器（:574），是正確且必要的寫法。
-
-#### ISL-20｜unused-return
-
-**嚴重度**：Medium
-**位置**：`contracts/PoolConfigurator.sol:201-210`
-
-**說明**：PoolConfigurator.requestRedeem(uint256,address) (contracts/PoolConfigurator.sol#201-210) ignores return value by IPool(pool_).approve(address(withdrawalManager_),shares_) (contracts/PoolConfigurator.sol#205)
-
-**判斷依據**：誤報。`IPool(pool_).approve(...)`（PoolConfigurator.sol:205）的對象是本協定自己的 OZ ERC20 `Pool`，`approve` 固定回傳 true 或 revert，不存在靜默失敗。
-
-#### ISL-21｜unused-return
-
-**嚴重度**：Medium
-**位置**：`contracts/PoolConfigurator.sol:318-320`
-
-**說明**：PoolConfigurator.previewRedeem(address,uint256) (contracts/PoolConfigurator.sol#318-320) ignores return value by (None,assets_) = _withdrawalManager().previewRedeem(owner_,shares_) (contracts/PoolConfigurator.sol#319)
-
-**判斷依據**：誤報。`(, assets_) = _withdrawalManager().previewRedeem(...)`（PoolConfigurator.sol:319）刻意只取第二個回傳值；第一個是 `redeemableShares_`，在這個 view 介面上不需要。
-
-#### ISL-22｜unused-return
-
-**嚴重度**：Medium
-**位置**：`contracts/PoolConfigurator.sol:195-198`
-
-**說明**：PoolConfigurator.triggerDefault(uint16) (contracts/PoolConfigurator.sol#195-198) ignores return value by (losses_,None) = _loanManager().triggerDefault(loanId_) (contracts/PoolConfigurator.sol#196)
-
-**判斷依據**：誤報。`(losses_, ) = _loanManager().triggerDefault(loanId_)`（PoolConfigurator.sol:196）刻意忽略第二個回傳值 `protocolFees_` —— 協定費已在 `_handleDefault` 內部處理完畢，此處只需要損失金額餵給 `_handleCover`。
 
 ### 附錄：發現處置分類
 
