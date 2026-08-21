@@ -265,12 +265,8 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-105 |
-| 嚴重度 | High |
 | 處置 | 已確認需修復（A） |
-| 狀態 | 待處理 |
 | 位置 | `contracts/LoanManager.sol:588-594` |
-| 命中情境 | L9 |
 
 **說明**：`_advanceGlobalPaymentAccounting()`（LoanManager.sol:588-594）負責把「上次結算到現在」的應計利息入帳。迴圈結束時應寫回 `domainStart`、`domainEnd`、`issuanceRate` 三個變數，本專案自 Maple 手工移植時漏抄 `domainStart` 這一行。結果是同一段期間被記兩次：迴圈已用**全額** issuance rate 把「舊 domainStart → 最後處理的到期日」整段入帳（其中含尚未逾期 payment 的份額），第 593 行的 `accruedInterest()` 又用**縮減後**的 rate 配上**尚未更新**的 `domainStart`，把「舊 domainStart → 現在」整段再記一次。重疊區間的未逾期 payment 因此被入帳兩次。
 
@@ -284,13 +280,10 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-02 |
-| 嚴重度 | Medium（工具 impact：High） |
 | 處置 | 已確認需修復（A） |
-| 狀態 | 待處理 |
 | 位置 | `contracts/LoanManager.sol:252-289` |
 
-**嚴重度調整理由**：工具判 High 係假設 `asset` 為任意 ERC20。本專案的 `asset` 受 IsleGlobals.isPoolAsset 白名單控管（PoolConfigurator.sol:99），目前部署為無 transfer hook 的 USDC，另兩個取得控制權的地址（poolAdmin、isleVault）皆為協定自有。故實際可利用性需要額外的治理層失誤配合，降為 Medium；但因為修法成本極低且同檔其他函式已有防護，仍列為必須修復。
+**嚴重度調整理由**（工具判 High，本報告判 Medium）：工具判 High 係假設 `asset` 為任意 ERC20。本專案的 `asset` 受 IsleGlobals.isPoolAsset 白名單控管（PoolConfigurator.sol:99），目前部署為無 transfer hook 的 USDC，另兩個取得控制權的地址（poolAdmin、isleVault）皆為協定自有。故實際可利用性需要額外的治理層失誤配合，降為 Medium；但因為修法成本極低且同檔其他函式已有防護，仍列為必須修復。
 
 **說明**：`repayLoan`（LoanManager.sol:252）是借款人還款的入口，流程為收款 → 分配資金 → 更新帳務。同一份合約的 `fundLoan`（:231）與 `removeLoanImpairment`（:368）都帶 `nonReentrant`，唯獨這支沒有，是遺漏而非設計。問題出在步驟順序：步驟 4 的 `_distributeClaimedFunds` 已把本金轉進 pool（:875），步驟 5 才把 `principalOut` 減掉（:273）。這兩步之間，`_totalAssets()`（PoolConfigurator.sol:344 = pool 餘額 + AUM）會把同一筆本金計算兩次。
 
@@ -304,13 +297,10 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-03 |
-| 嚴重度 | Medium（工具 impact：High） |
 | 處置 | 已確認需修復（A） |
-| 狀態 | 待處理 |
 | 位置 | `contracts/LoanManager.sol:252-289` |
 
-**嚴重度調整理由**：同 [M-1]：同一函式、同一修法，降級理由一致。
+**嚴重度調整理由**（工具判 High，本報告判 Medium）：同 [M-1]：同一函式、同一修法，降級理由一致。
 
 **說明**：與 [M-1] 為同一個缺陷：`repayLoan`（LoanManager.sol:252）缺少 `nonReentrant`。Slither 對同一函式的不同狀態變數各報一次，故產生兩筆發現。成因、影響與修法均與 [M-1] 相同。
 
@@ -324,13 +314,10 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-05 |
-| 嚴重度 | Medium（工具 impact：High） |
 | 處置 | 已確認需修復（A） |
-| 狀態 | 待處理 |
 | 位置 | `contracts/PoolConfigurator.sol:382-392` |
 
-**嚴重度調整理由**：工具判 High 係假設代幣行為未知。目前部署資產為標準回傳 true 的 USDC，兩條失敗路徑都需要 governor 先把非標準代幣加進 `isPoolAsset` 白名單才會觸發，不是任何外部人可直接觸發的資金損失，故降為 Medium。但這是一行的修法，且缺陷會同時影響資金正確性與違約流程的可用性，仍列為必須修復。
+**嚴重度調整理由**（工具判 High，本報告判 Medium）：工具判 High 係假設代幣行為未知。目前部署資產為標準回傳 true 的 USDC，兩條失敗路徑都需要 governor 先把非標準代幣加進 `isPoolAsset` 白名單才會觸發，不是任何外部人可直接觸發的資金損失，故降為 Medium。但這是一行的修法，且缺陷會同時影響資金正確性與違約流程的可用性，仍列為必須修復。
 
 **說明**：`_handleCover`（PoolConfigurator.sol:389）在觸發違約時把第一損失準備（pool cover）撥給 pool，用的是原生 `transfer` 且忽略回傳值。同一份合約其餘所有 `asset` 操作都走 SafeERC20（:185、:247、:256），此處是明顯遺漏。`asset` 是 governor 白名單的任意 ERC20，不保證失敗時 revert。
 
@@ -344,12 +331,8 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-106 |
-| 嚴重度 | Medium |
 | 處置 | 已確認需修復（A） |
-| 狀態 | 待處理 |
 | 位置 | `contracts/LoanManager.sol:109-112` |
-| 命中情境 | L9 |
 
 **說明**：`accruedInterest()`（LoanManager.sol:109-112）以 `issuanceRate × (block.timestamp − domainStart)` 計算尚未入帳的應計利息。上游 Maple 在同一函式帶有 `_min(block.timestamp, domainEnd)` 上限，移植時被移除，因此時間項不再受到期日封頂：只要沒有任何交易觸發結算，這個值會隨時間無上限成長，即使所有貸款都已到期、不應再產生利息。
 
@@ -363,12 +346,8 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-107 |
-| 嚴重度 | Medium |
 | 處置 | 已確認需修復（A） |
-| 狀態 | 待處理 |
 | 位置 | `contracts/LoanManager.sol:770-775` |
-| 命中情境 | L11 |
 
 **說明**：`_queuePayment`（LoanManager.sol:770-775）取 `feeRate_ = protocolFee_ + adminFee_` 後呼叫 `_getNetInterest(interest_, feeRate_)`，其實作為 `interest_ * (HUNDRED_PERCENT - feeRate_) / HUNDRED_PERCENT`（:680）。兩個費率的 setter —— `IsleGlobals.setProtocolFee`（IsleGlobals.sol:90，onlyGovernor）與 `PoolConfigurator.setAdminFee`（PoolConfigurator.sol:144，onlyAdminOrGovernor）—— 都沒有任何上下界檢查。`uint24` 上限 16,777,215 相對於 `HUNDRED_PERCENT = 1e6` 等於 1677%，DataTypes.sol:9 的註解「uint24 adminFee; max = 1.6e7 (1600%)」顯示開發者已意識到型別容許超過 100%，但未加檢查。
 
@@ -382,12 +361,8 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-108 |
-| 嚴重度 | Medium |
 | 處置 | 已確認需修復（A） |
-| 狀態 | 待處理 |
 | 位置 | `contracts/PoolConfigurator.sol:382-392` |
-| 命中情境 | L11 |
 
 **說明**：`_handleCover`（PoolConfigurator.sol:382-392）計算可動用的第一損失準備 `availableCover_ = poolCover * _config.maxCoverLiquidation / HUNDRED_PERCENT`。`setMaxCoverLiquidation` 沒有上限檢查，該值可被設為超過 100%，使 `availableCover_` 大於實際持有的 `poolCover`；後續扣減時下溢 revert。
 
@@ -401,12 +376,8 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-109 |
-| 嚴重度 | Medium |
 | 處置 | 已確認需修復（A） |
-| 狀態 | 待處理 |
 | 位置 | `contracts/Receivable.sol:59-76` |
-| 命中情境 | L2 |
 
 **說明**：`Receivable.createReceivable`（Receivable.sol:59-76）鑄造代表一張應收帳款的 ERC-721 憑證，函式上沒有任何 modifier —— 任何地址都可以指定買方、賣方、面額與到期日鑄出一張憑證。合約層面沒有任何機制驗證這張憑證背後真的存在一筆應收帳款。
 
@@ -420,12 +391,8 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-110 |
-| 嚴重度 | Medium |
 | 處置 | 已確認需修復（A） |
-| 狀態 | 待處理 |
 | 位置 | `contracts/LoanManager.sol:173-228` |
-| 命中情境 | L11 |
 
 **說明**：`requestLoan`（LoanManager.sol:173-228）由借款人自行提交貸款參數，其中包含 `gracePeriod`（寬限期）。這個參數的用途是保護出借方 —— `triggerDefault` 必須等到期日加上寬限期之後才能觸發。由借款人決定一個用來限制出借方何時能宣告其違約的參數，方向本身就是反的，而合約對其上限沒有任何檢查。
 
@@ -439,12 +406,8 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-112 |
-| 嚴重度 | Medium |
 | 處置 | 已確認需修復（A） |
-| 狀態 | 待處理 |
 | 位置 | `contracts/WithdrawalManager.sol:105-158` |
-| 命中情境 | L11 |
 
 **說明**：`setExitConfig`（WithdrawalManager.sol:105-158）設定贖回的週期長度 `cycleDuration`，贖回必須落在對應週期的視窗內才能執行。這個參數沒有上限檢查，pool admin 可將其設為極大值，使下一個贖回視窗落在極遠的未來。
 
@@ -458,12 +421,8 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-114 |
-| 嚴重度 | Medium |
 | 處置 | 已確認需修復（A） |
-| 狀態 | 待處理 |
 | 位置 | `contracts/libraries/upgradability/VersionedInitializable.sol:37-60` |
-| 命中情境 | L7 |
 
 **說明**：`VersionedInitializable`（libraries/upgradability/VersionedInitializable.sol:37-60）以 `revision > lastInitializedRevision` 作為 `initialize` 的守門條件，函式本身不檢查呼叫者。升級的原子性完全依賴呼叫者在 `setXxxImpl` 傳入正確的 `params` —— 若傳入空的 `params`，implementation 被換上但 `initialize` 未被呼叫，該函式在新 revision 下對任何人開放。
 
@@ -477,12 +436,8 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-111 |
-| 嚴重度 | Low |
 | 處置 | 已確認需修復（A） |
-| 狀態 | 待處理 |
 | 位置 | `contracts/LoanManager.sol:173-249` |
-| 命中情境 | L2 |
 
 **說明**：`requestLoan`／`fundLoan`（LoanManager.sol:173-249）沒有記錄某張應收帳款憑證是否已經被用來支撐一筆尚未結清的貸款，也沒有在申請時把 NFT 托管起來。同一個 tokenId 因此可以重複提出貸款申請。
 
@@ -533,8 +488,6 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-113 |
-| 嚴重度 | Medium |
 | 處置 | 已知風險但可接受（B） |
 | 位置 | `contracts/PoolAddressesProvider.sol:145-179` |
 
@@ -552,8 +505,6 @@ Governor 同時具備 pool admin 的全部權限。**這個角色的權限邊界
 
 | | |
 |---|---|
-| 掃描編號 | ISL-115 |
-| 嚴重度 | Informational |
 | 處置 | 已知風險但可接受（B） |
 | 位置 | `contracts/Receivable.sol:59-92` |
 
