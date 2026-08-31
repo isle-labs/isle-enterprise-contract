@@ -108,7 +108,18 @@ contract LoanManager is
     /// @inheritdoc ILoanManager
     function accruedInterest() public view override returns (uint256 accruedInterest_) {
         uint256 issuanceRate_ = issuanceRate;
-        accruedInterest_ = issuanceRate_ == 0 ? 0 : _getIssuance(issuanceRate, block.timestamp - domainStart);
+
+        if (issuanceRate_ == 0) return 0;
+
+        // Accrual stops at the earliest due date: past that point a payment is late, and late interest is booked
+        // on repayment instead. Without this cap the value grows without bound while no transaction settles it.
+        uint256 domainStart_ = domainStart;
+        uint256 accrualEnd_ = _min(block.timestamp, domainEnd);
+
+        // `_advanceGlobalPaymentAccounting` advances `domainStart` to the last due date it processed, which can
+        // leave it at or beyond `accrualEnd_`. The clamp is not cosmetic: this function feeds `totalAssets()`,
+        // so an underflow here would revert every deposit and redemption in the pool.
+        accruedInterest_ = accrualEnd_ <= domainStart_ ? 0 : _getIssuance(issuanceRate_, accrualEnd_ - domainStart_);
     }
 
     /// @inheritdoc ILoanManager
@@ -587,6 +598,11 @@ contract LoanManager is
 
             domainEnd = SafeCast.toUint48(domainEnd_);
             issuanceRate = issuanceRate_;
+
+            // The loop has already accounted every interval up to `domainStart_` at the rate in force over that
+            // interval. `accruedInterest()` below must therefore start from there, not from the stale value, or
+            // the payments that are still accruing get booked a second time over the interval just covered.
+            domainStart = SafeCast.toUint48(domainStart_);
         }
 
         // Account the accrued interest to the accountedInterest
@@ -610,10 +626,9 @@ contract LoanManager is
     //////////////////////////////////////////////////////////////*/
 
     function _compareAndSubtractAccountedInterest(uint256 amount_) internal {
-        // Rounding errors accrue in `accountedInterest` when _loans are late and the issuance rate is used to calculate
-        // the interest more often to increment than to decrement.
-        // When this is the case, the underflow is prevented on the last decrement by using the minimum of the two
-        // values below.
+        // The floor here absorbs wei-level rounding only. It is not a licence for `accountedInterest` to drift:
+        // until the `domainStart` write-back in `_advanceGlobalPaymentAccounting` was restored, a systematic
+        // double count was mistaken for rounding and hidden by this line. Treat any material excess as a bug.
         accountedInterest -= SafeCast.toUint112(_min(accountedInterest, amount_));
     }
 
