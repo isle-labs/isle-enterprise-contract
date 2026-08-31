@@ -6,6 +6,7 @@ import { PoolConfigurator } from "contracts/PoolConfigurator.sol";
 
 import { DeployerActor } from "scripts/actors/Deployer.s.sol";
 import { GovernorActor } from "scripts/actors/Governor.s.sol";
+import { HtsSimulation } from "scripts/hedera/HtsSimulation.sol";
 import { MarketRecord } from "scripts/Base.s.sol";
 
 /// @notice usage: forge script DeployPoolConfigurator --rpc-url <url> --broadcast
@@ -20,6 +21,10 @@ contract DeployPoolConfigurator is DeployerActor, GovernorActor {
         address asset = promptAddress("Pool asset address (testnet: IsleUSD; mainnet: USDC)");
         string memory poolName = promptString("Pool ERC20 name (e.g. \"ChargeSmith Pool\")");
         string memory poolSymbol = promptString("Pool ERC20 symbol (e.g. \"CHG\")");
+
+        // Both the configurator and the Pool it creates associate themselves with `asset`; on Hedera
+        // that cannot be simulated locally without this. No-op on the other chains.
+        HtsSimulation.setup(asset);
 
         address impl = _deployImpl(PoolAddressesProvider(market.PoolAddressesProvider));
         address configurator =

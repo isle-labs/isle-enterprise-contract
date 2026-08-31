@@ -1,6 +1,3 @@
-# Ledger of contracts deployed by scripts in scripts/deployments/.
-# Managed automatically by Deploy*.s.sol; do not edit by hand unless restoring.
-
 [hedera]
 IsleGlobals = "0x0b2BdD04D12f4Fc7d4a45100cE3dC10605b44B00"
 Receivable = "0x536ad6c51716db79713eafc1c30948f0759ff12e"
@@ -20,3 +17,55 @@ PoolAddressesProvider = "0x2cf98bc6025a4c9efe495851a0c84cbb53b9e0e1"
 PoolConfigurator = "0x8C42faFDa347bbFA699A31aDB8858ad2EC4b9Ae2"
 WithdrawalManager = "0xBcA3BA4B760B922f455d9fee91807100f8E0A63f"
 name = "chipright"
+
+[hedera-testnet]
+IsleGlobals = "0xC098f530389208788Cc93f2D7728cC5cEEd61429"
+Receivable = "0x43B7f614b3669c797D9E567392024baA15213Fce"
+
+[[hedera-testnet.markets]]
+LoanManager = "0x5B1FEc9394da6C16B25B465aF453fFab5133B85E"
+Pool = "0x138e76512526107Eeda87ba3d9B3E1c472403560"
+PoolAddressesProvider = "0xE85869e0c49BBDefc0996eb95B225664da51405A"
+PoolConfigurator = "0xb97d4Acc16498695775eb982385C5F1091BA01ab"
+WithdrawalManager = "0x3A427c5A11bdc87ebE62A995f62a5bc6f34A99de"
+name = "T01"
+
+[[hedera-testnet.markets]]
+LoanManager = "0xD6994d2CbaF09A4c2997f852ded0059999B5164c"
+Pool = "0xb8eC3103C605dF080faD338652b9a2365Cc35902"
+PoolAddressesProvider = "0xDF8E94d3921825d9cda2668762001E75Dd3B2179"
+PoolConfigurator = "0x2698A3DC2220fbd452f6Fc88672Cc1A864bbd156"
+WithdrawalManager = "0x9d5e44a4789e48127D076f7dfED1653480F4A681"
+name = "T02"
+
+[plume-testnet]
+IsleGlobals = "0xe6C915f8e68f8Ef8e2Aef11C8c140500e7615c2b"
+Receivable = "0x0b2BdD04D12f4Fc7d4a45100cE3dC10605b44B00"
+
+[[plume-testnet.markets]]
+LoanManager = "0xD2f0E5BEc5c87AFFbbe5Ed0F31D4D753387896DA"
+Pool = "0xB3A0378B8d3B545A7f28D1EF81C8772C2b1EE783"
+PoolAddressesProvider = "0x7DfDbAe517E988DD0E3b0f9898ca84a420721CD6"
+PoolConfigurator = "0x2A1Cf92e55461f951306811B03075F025F211f66"
+WithdrawalManager = "0x26A8c00882f945BE52DEcc37947b4EFdE57BCC11"
+name = "T01"
+
+[[plume-testnet.markets]]
+LoanManager = "0x3e8824538A005E5a42Fa9BC0e88eaEc9862cAe17"
+Pool = "0xe5ac590AFfD0BCF033423Bfa9D786DFC933e6eE2"
+PoolAddressesProvider = "0x51b235a5511e7c25A3F610081f096101CCA72F99"
+PoolConfigurator = "0x89b2E004E30F0B41e527C23C3E39cD086A639750"
+WithdrawalManager = "0x402bBecEeac2109Cff1fB358470bC2aa4f90578A"
+name = "wuren"
+
+[plume]
+IsleGlobals = "0xe6C915f8e68f8Ef8e2Aef11C8c140500e7615c2b"
+Receivable = "0x0b2BdD04D12f4Fc7d4a45100cE3dC10605b44B00"
+
+[[plume.markets]]
+LoanManager = "0x3e8824538A005E5a42Fa9BC0e88eaEc9862cAe17"
+Pool = "0xe5ac590AFfD0BCF033423Bfa9D786DFC933e6eE2"
+PoolAddressesProvider = "0x51b235a5511e7c25A3F610081f096101CCA72F99"
+PoolConfigurator = "0x89b2E004E30F0B41e527C23C3E39cD086A639750"
+WithdrawalManager = "0x402bBecEeac2109Cff1fB358470bC2aa4f90578A"
+name = "wuren"
