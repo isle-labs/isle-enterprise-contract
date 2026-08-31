@@ -53,9 +53,11 @@ contract AssetsUnderManagement_LoanManager_Integration_Concrete_Test is
         assertEq(loanManager.assetsUnderManagement(), defaults.PRINCIPAL_REQUESTED() + accountedInterest);
     }
 
+    /// @dev Accrual is capped at the due date, so AUM reads the same 30-day term whether or not accounting has
+    ///      been settled. The `_Update` variant below asserts the same figure on purpose: the two must agree.
     function test_AssetsUnderManagement_OneLoan_Defaulted_NotUpdate() external whenLoanFunded {
         vm.warp(MAY_1_2023 + 100 days);
-        uint256 accruedInterestEach = defaults.NEW_RATE_ZERO_FEE_RATE() * 100 days / 1e27;
+        uint256 accruedInterestEach = defaults.NEW_RATE_ZERO_FEE_RATE() * 30 days / 1e27;
         assertEq(loanManager.assetsUnderManagement(), defaults.PRINCIPAL_REQUESTED() + accruedInterestEach);
     }
 
@@ -97,9 +99,10 @@ contract AssetsUnderManagement_LoanManager_Integration_Concrete_Test is
         );
     }
 
+    /// @dev As above: capped at the due date, so it matches the `_Update` variant below.
     function test_AssetsUnderManagement_MultipleLoans_Defaulted_NotUpdate() external whenTwoLoansFunded {
         vm.warp(MAY_1_2023 + 100 days);
-        uint256 accruedInterest = (defaults.NEW_RATE_ZERO_FEE_RATE() * 100 days) * 2 / 1e27;
+        uint256 accruedInterest = (defaults.NEW_RATE_ZERO_FEE_RATE() * 30 days) * 2 / 1e27;
         assertEq(loanManager.assetsUnderManagement(), defaults.PRINCIPAL_REQUESTED() * 2 + accruedInterest);
     }
 
