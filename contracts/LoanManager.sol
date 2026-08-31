@@ -767,7 +767,11 @@ contract LoanManager is
     function _queuePayment(uint16 loanId_, uint256 startDate_, uint256 dueDate_) internal returns (uint256 newRate_) {
         uint256 protocolFee_ = IIsleGlobals(_globals()).protocolFee();
         uint256 adminFee_ = IPoolConfigurator(_poolConfigurator()).adminFee();
-        uint256 feeRate_ = protocolFee_ + adminFee_;
+
+        // `setAdminFee` rejects a combined rate above 100%, but the protocol fee is a shared global that can
+        // be raised afterwards, past a rate this market already accepted. Floor it here so a fee misconfiguration
+        // cannot underflow `_getNetInterest` and take `fundLoan` down with it.
+        uint256 feeRate_ = _min(protocolFee_ + adminFee_, HUNDRED_PERCENT);
 
         Loan.Info memory loan_ = _loans[loanId_];
 

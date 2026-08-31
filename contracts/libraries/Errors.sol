@@ -195,4 +195,17 @@ library Errors {
 
     /// @notice Thrown when anyone calls the `previewWithdraw` function.
     error Pool_WithdrawalNotImplemented();
+
+    /*//////////////////////////////////////////////////////////////
+                            CONFIGURATION BOUNDS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the admin fee would push the combined fee rate above 100%.
+    error PoolConfigurator_FeeRateTooHigh(uint256 adminFee_, uint256 protocolFee_, uint256 maximum_);
+
+    /// @notice Thrown when the maximum cover liquidation is set above 100%.
+    error PoolConfigurator_MaxCoverLiquidationTooHigh(uint256 maxCoverLiquidation_, uint256 maximum_);
+
+    /// @notice Thrown when the withdrawal cycle duration is set above the allowed maximum.
+    error WithdrawalManager_CycleDurationTooLong(uint256 cycleDuration_, uint256 maximum_);
 }

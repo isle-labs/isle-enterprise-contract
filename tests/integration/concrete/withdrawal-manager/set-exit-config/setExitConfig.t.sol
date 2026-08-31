@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import { Errors } from "contracts/libraries/Errors.sol";
+import { WithdrawalManager as WithdrawalManagerContract } from "contracts/WithdrawalManager.sol";
 
 import { WithdrawalManager } from "contracts/libraries/types/DataTypes.sol";
 
@@ -55,6 +56,28 @@ contract SetExitConfig_Integration_Concrete_Test is WithdrawalManager_Integratio
         uint256 newWindowDuration_ = defaults.NEW_WINDOW_DURATION() + 15 days;
 
         vm.expectRevert(abi.encodeWithSelector(Errors.WithdrawalManager_WindowGreaterThanCycle.selector));
+        withdrawalManager.setExitConfig({ cycleDuration_: newCycleDuration_, windowDuration_: newWindowDuration_ });
+    }
+
+    /// @dev An unbounded cycle pushes the next redemption window arbitrarily far out and freezes every
+    ///      lender's exit: `Pool.withdraw` reverts by design and `removeShares` only hands back the share
+    ///      receipt, so no other route to the assets exists.
+    function test_RevertWhen_CycleDurationTooLong()
+        external
+        whenProtocolNotPaused
+        whenCallerPoolAdmin
+        whenWindowlNotZero
+    {
+        uint256 maxCycleDuration_ = WithdrawalManagerContract(address(withdrawalManager)).MAX_CYCLE_DURATION();
+        uint256 newCycleDuration_ = maxCycleDuration_ + 1;
+        // Read before `expectRevert`: a call made while evaluating the arguments would consume the expectation.
+        uint256 newWindowDuration_ = defaults.NEW_WINDOW_DURATION();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.WithdrawalManager_CycleDurationTooLong.selector, newCycleDuration_, maxCycleDuration_
+            )
+        );
         withdrawalManager.setExitConfig({ cycleDuration_: newCycleDuration_, windowDuration_: newWindowDuration_ });
     }
 
