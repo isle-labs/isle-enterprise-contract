@@ -147,6 +147,16 @@ contract PoolConfigurator is VersionedInitializable, IPoolConfigurator, PoolConf
 
     /// @inheritdoc IPoolConfigurator
     function setAdminFee(uint24 adminFee_) external override whenNotPaused onlyAdminOrGovernor {
+        // The admin fee and the protocol fee are set by different roles but are summed when a payment is
+        // queued, so neither setter can see the combined rate on its own. Check it here; `_queuePayment`
+        // carries a floor for the case where the protocol fee is raised after this call.
+        uint256 protocolFee_ = _globals().protocolFee();
+        if (uint256(adminFee_) + protocolFee_ > HUNDRED_PERCENT) {
+            revert Errors.PoolConfigurator_FeeRateTooHigh({
+                adminFee_: adminFee_, protocolFee_: protocolFee_, maximum_: HUNDRED_PERCENT
+            });
+        }
+
         emit AdminFeeSet(_config.adminFee = adminFee_);
     }
 
@@ -157,6 +167,14 @@ contract PoolConfigurator is VersionedInitializable, IPoolConfigurator, PoolConf
 
     /// @inheritdoc IPoolConfigurator
     function setMaxCoverLiquidation(uint24 maxCoverLiquidation_) external override whenNotPaused onlyGovernor {
+        // Above 100% the cover arithmetic in `_handleCover` underflows, which disables `triggerDefault`
+        // entirely — and it fails exactly when a default needs to be recognised.
+        if (maxCoverLiquidation_ > HUNDRED_PERCENT) {
+            revert Errors.PoolConfigurator_MaxCoverLiquidationTooHigh({
+                maxCoverLiquidation_: maxCoverLiquidation_, maximum_: HUNDRED_PERCENT
+            });
+        }
+
         emit MaxCoverLiquidationSet(_config.maxCoverLiquidation = maxCoverLiquidation_);
     }
 
@@ -385,13 +403,17 @@ contract PoolConfigurator is VersionedInitializable, IPoolConfigurator, PoolConf
     }
 
     function _handleCover(uint256 losses_) internal {
-        uint256 availableCover_ = (poolCover * _config.maxCoverLiquidation) / HUNDRED_PERCENT;
+        // The setter bounds `maxCoverLiquidation`, but clamp to the balance actually held as well: this path
+        // runs during default handling, and an underflow here would make defaults impossible to recognise.
+        uint256 availableCover_ = _min((poolCover * _config.maxCoverLiquidation) / HUNDRED_PERCENT, poolCover);
 
         uint256 coverAmount_ = _min(availableCover_, losses_);
 
+        // Transfer before the decrement, and via SafeERC20 as every other asset movement in this contract
+        // does. A bare `transfer` whose return value is ignored would let a token that reports failure
+        // without reverting erase cover from the books while the assets never move.
+        IERC20(asset).safeTransfer(pool, coverAmount_);
         poolCover -= coverAmount_;
-        // transfer cover to pool
-        IERC20(asset).transfer(pool, coverAmount_);
 
         emit CoverLiquidated(coverAmount_);
     }

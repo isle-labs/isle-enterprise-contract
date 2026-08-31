@@ -202,4 +202,17 @@ library Errors {
 
     /// @notice Thrown when associating with a Hedera Token Service token fails.
     error Hts_AssociateFailed(address token_, uint256 responseCode_);
+
+    /*//////////////////////////////////////////////////////////////
+                            CONFIGURATION BOUNDS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the admin fee would push the combined fee rate above 100%.
+    error PoolConfigurator_FeeRateTooHigh(uint256 adminFee_, uint256 protocolFee_, uint256 maximum_);
+
+    /// @notice Thrown when the maximum cover liquidation is set above 100%.
+    error PoolConfigurator_MaxCoverLiquidationTooHigh(uint256 maxCoverLiquidation_, uint256 maximum_);
+
+    /// @notice Thrown when the withdrawal cycle duration is set above the allowed maximum.
+    error WithdrawalManager_CycleDurationTooLong(uint256 cycleDuration_, uint256 maximum_);
 }

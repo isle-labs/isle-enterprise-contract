@@ -23,6 +23,10 @@ contract WithdrawalManager is WithdrawalManagerStorage, IWithdrawalManager, Vers
 
     uint256 public constant WITHDRAWAL_MANAGER_REVISION = 0x1;
 
+    /// @notice Upper bound on a withdrawal cycle. Long enough for any sensible redemption policy, short
+    ///         enough that a mistyped value cannot lock lenders out of their assets indefinitely.
+    uint256 public constant MAX_CYCLE_DURATION = 90 days;
+
     IPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
 
     /*//////////////////////////////////////////////////////////////
@@ -117,6 +121,15 @@ contract WithdrawalManager is WithdrawalManagerStorage, IWithdrawalManager, Vers
 
         if (windowDuration_ > cycleDuration_) {
             revert Errors.WithdrawalManager_WindowGreaterThanCycle();
+        }
+
+        // A redemption is only executable inside its cycle's window, so an unbounded cycle pushes the next
+        // window arbitrarily far out and freezes every lender's exit. `Pool.withdraw` reverts by design and
+        // `removeShares` only returns the share receipt, so there is no other route back to the assets.
+        if (cycleDuration_ > MAX_CYCLE_DURATION) {
+            revert Errors.WithdrawalManager_CycleDurationTooLong({
+                cycleDuration_: cycleDuration_, maximum_: MAX_CYCLE_DURATION
+            });
         }
 
         // The new config will only take effect after the current cycle and two additional ones elapse.
