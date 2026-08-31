@@ -84,16 +84,12 @@ abstract contract BaseScript is Script {
     function _readMarketsOrEmpty() private view returns (MarketRecord[] memory) {
         string memory toml = vm.readFile(_deploymentPath());
         string memory key = string.concat(".", currentChain(), ".markets");
-        try this.__parseMarkets(toml, key) returns (MarketRecord[] memory existing) {
-            return existing;
-        } catch {
-            return new MarketRecord[](0);
-        }
-    }
-
-    /// @dev External wrapper required so `_readMarketsOrEmpty` can use try/catch.
-    function __parseMarkets(string memory toml, string memory key) external pure returns (MarketRecord[] memory) {
-        return abi.decode(vm.parseToml(toml, key), (MarketRecord[]));
+        // Deliberately not `try this.__parseMarkets(...)`: an external self-call trips Foundry's
+        // address(this)-in-script guard and aborts the whole run.
+        if (!vm.keyExistsToml(toml, key)) return new MarketRecord[](0);
+        bytes memory raw = vm.parseToml(toml, key);
+        if (raw.length == 0) return new MarketRecord[](0);
+        return abi.decode(raw, (MarketRecord[]));
     }
 
     function readExternal(string memory name) internal view returns (address) {

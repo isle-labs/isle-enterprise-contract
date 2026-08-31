@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { Errors } from "./libraries/Errors.sol";
+import { Hts } from "./libraries/Hts.sol";
 import { VersionedInitializable } from "./libraries/upgradability/VersionedInitializable.sol";
 import { PoolDeployer } from "./libraries/PoolDeployer.sol";
 
@@ -101,6 +102,10 @@ contract PoolConfigurator is VersionedInitializable, IPoolConfigurator, PoolConf
         }
 
         /* Effects */
+        // Must precede `createPool`: the configurator custodies first-loss cover in `asset_`, so on Hedera
+        // it has to associate itself with the token before it can receive any. No-op on the other chains.
+        Hts.associate(asset_);
+
         address pool_ =
             PoolDeployer.createPool({ configurator_: address(this), asset_: asset_, name_: name_, symbol_: symbol_ });
 

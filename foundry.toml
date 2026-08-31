@@ -35,6 +35,25 @@
     max_test_rejects = 1_000_000 # Number of times `vm.assume` can fail
     runs = 50
 
+# Hedera deployments. Select with `FOUNDRY_PROFILE=hedera`.
+#
+# Kept as a separate profile rather than folded into `default` so Plume builds and the
+# audited bytecode they produce stay byte-for-byte unchanged.
+#
+#   - `ffi`: `Hsc.htsSetup()` shells out to `curl` to read real token state from the
+#     Hedera Mirror Node. Without it, any script that touches the HTS asset reverts
+#     during local simulation, before it ever gets to broadcast.
+#   - metadata settings: restored to the solc defaults. `bytecode_hash = "none"` plus
+#     `cbor_metadata = false` made UUPS proxy deploys fail on Hedera — observed by Jung
+#     while deploying the wuren/chipright markets (commit 6eedd27). Root cause never
+#     established; this reproduces the configuration that is known to work.
+#   - `extra_output`: `storageLayout` is required by hedera-forking's `getHtsStorageAt`.
+[profile.hedera]
+    bytecode_hash = "ipfs"
+    cbor_metadata = true
+    ffi = true
+    extra_output = ["storageLayout"]
+
 # Speed up compilation and tests during development
 [profile.lite]
     optimizer = false

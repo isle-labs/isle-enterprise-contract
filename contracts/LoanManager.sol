@@ -7,6 +7,7 @@ import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 import { Errors } from "./libraries/Errors.sol";
+import { Hts } from "./libraries/Hts.sol";
 import { VersionedInitializable } from "./libraries/upgradability/VersionedInitializable.sol";
 import { ReentrancyGuardUpgradeable } from "./libraries/ReentrancyGuard.sol";
 import { Receivable, Loan } from "./libraries/types/DataTypes.sol";
@@ -55,6 +56,11 @@ contract LoanManager is
             revert Errors.LoanManager_AssetZeroAddress();
         }
         __ReentrancyGuard_init();
+
+        // Repayments land here before being split between pool, admin and vault, so on Hedera the loan
+        // manager must associate itself with the asset before it can receive any. No-op elsewhere.
+        Hts.associate(asset_);
+
         emit Initialized({ poolAddressesProvider_: address(ADDRESSES_PROVIDER), asset_: asset = asset_ });
     }
 

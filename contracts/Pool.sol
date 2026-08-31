@@ -8,6 +8,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { Errors } from "./libraries/Errors.sol";
+import { Hts } from "./libraries/Hts.sol";
 
 import { IPool } from "./interfaces/IPool.sol";
 import { IPoolConfigurator } from "./interfaces/IPoolConfigurator.sol";
@@ -33,7 +34,11 @@ contract Pool is IPool, ERC20Permit {
     {
         if (asset_ == address(0)) revert Errors.Pool_ZeroAsset();
         if ((configurator = configurator_) == address(0)) revert Errors.Pool_ZeroConfigurator();
-        if (!IERC20(asset_).approve(configurator_, type(uint256).max)) revert Errors.Pool_FailedApprove();
+
+        // On Hedera the pool cannot hold the asset until it associates itself with it, and the approval
+        // below must fit HTS's `int64` allowance. Both are no-ops on the other chains.
+        Hts.associate(asset_);
+        if (!IERC20(asset_).approve(configurator_, Hts.maxApproval())) revert Errors.Pool_FailedApprove();
 
         _underlyingDecimals = ERC20(asset_).decimals();
         _asset = ERC20Permit(asset_);
