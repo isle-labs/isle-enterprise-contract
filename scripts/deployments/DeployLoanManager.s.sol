@@ -6,6 +6,7 @@ import { LoanManager } from "contracts/LoanManager.sol";
 
 import { DeployerActor } from "scripts/actors/Deployer.s.sol";
 import { GovernorActor } from "scripts/actors/Governor.s.sol";
+import { HtsSimulation } from "scripts/hedera/HtsSimulation.sol";
 import { MarketRecord } from "scripts/Base.s.sol";
 
 /// @notice usage: forge script DeployLoanManager --rpc-url <url> --broadcast
@@ -17,6 +18,10 @@ contract DeployLoanManager is DeployerActor, GovernorActor {
     function run() public {
         MarketRecord memory market = promptMarket();
         address asset = promptAddress("Pool asset address (same as PoolConfigurator's asset)");
+
+        // The loan manager associates itself with `asset` during initialization; on Hedera that
+        // cannot be simulated locally without this. No-op on the other chains.
+        HtsSimulation.setup(asset);
 
         address impl = _deployImpl(PoolAddressesProvider(market.PoolAddressesProvider));
         address manager = _wire(PoolAddressesProvider(market.PoolAddressesProvider), impl, asset);

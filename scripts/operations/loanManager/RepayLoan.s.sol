@@ -7,12 +7,17 @@ import { ILoanManager } from "contracts/interfaces/ILoanManager.sol";
 import { IPoolConfigurator } from "contracts/interfaces/IPoolConfigurator.sol";
 
 import { BuyerActor } from "scripts/actors/Buyer.s.sol";
+import { HtsSimulation } from "scripts/hedera/HtsSimulation.sol";
 import { MarketRecord } from "scripts/Base.s.sol";
 
 contract RepayLoan is BuyerActor {
     function run() public {
         MarketRecord memory market = promptMarket();
         uint16 loanId = uint16(promptUint("Loan id"));
+
+        // Approves and transfers the pool asset, an HTS token on Hedera. No-op on the other chains.
+        HtsSimulation.emulate();
+
         _repay(market.LoanManager, market.PoolConfigurator, loanId);
     }
 

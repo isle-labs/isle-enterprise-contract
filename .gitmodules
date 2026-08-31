@@ -16,3 +16,7 @@
 [submodule "modules/solarray"]
 	path = modules/solarray
 	url = https://github.com/evmcheb/solarray
+[submodule "modules/hedera-forking"]
+	path = modules/hedera-forking
+	url = https://github.com/hashgraph/hedera-forking
+	branch = main

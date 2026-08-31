@@ -195,4 +195,11 @@ library Errors {
 
     /// @notice Thrown when anyone calls the `previewWithdraw` function.
     error Pool_WithdrawalNotImplemented();
+
+    /*//////////////////////////////////////////////////////////////
+                                  HTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when associating with a Hedera Token Service token fails.
+    error Hts_AssociateFailed(address token_, uint256 responseCode_);
 }

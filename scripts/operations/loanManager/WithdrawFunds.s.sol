@@ -7,6 +7,7 @@ import { ILoanManager } from "contracts/interfaces/ILoanManager.sol";
 import { Loan } from "contracts/libraries/types/DataTypes.sol";
 
 import { SellerActor } from "scripts/actors/Seller.s.sol";
+import { HtsSimulation } from "scripts/hedera/HtsSimulation.sol";
 import { MarketRecord } from "scripts/Base.s.sol";
 
 contract WithdrawFunds is SellerActor {
@@ -14,6 +15,10 @@ contract WithdrawFunds is SellerActor {
         MarketRecord memory market = promptMarket();
         uint256 loanId = promptUint("Loan id");
         address destination = promptAddress("Funds destination address");
+
+        // Transfers the pool asset to the seller, an HTS token on Hedera. No-op on the other chains.
+        HtsSimulation.emulate();
+
         _withdraw(market.LoanManager, uint16(loanId), destination);
     }
 
