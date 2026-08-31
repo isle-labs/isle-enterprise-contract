@@ -1,0 +1,2475 @@
+{
+  "findings": [
+    {
+      "id": "ISL-01",
+      "scan_id": 1,
+      "source": "tool",
+      "check": "arbitrary-send-erc20",
+      "impact": "High",
+      "severity": "High",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        169,
+        192
+      ],
+      "description": "PoolConfigurator.requestFunds(uint256) (contracts/PoolConfigurator.sol#169-192) uses arbitrary from in transferFrom: IERC20(asset_).safeTransferFrom(pool_,msg.sender,principal_) (contracts/PoolConfigurator.sol#185)",
+      "category": "C",
+      "dev_note": "誤報。`from` 不是任意地址而是 `pool` 這個 storage 變數（PoolConfigurator.sol:171、185），授權來自 Pool 建構子對 configurator 的 `approve(configurator, type(uint256).max)`（Pool.sol:36），屬協定內部的既定信任關係。呼叫者另受 PoolConfigurator.sol:175-177 的 `msg.sender != loanManager_` 檢查限制。真正的風險不在此處的 `from`，而在 `loanManager_` 來源可被 governor 改寫，已另立 ISL-113 追蹤。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-02",
+      "scan_id": 2,
+      "source": "tool",
+      "check": "reentrancy-eth",
+      "impact": "High",
+      "severity": "Medium",
+      "severity_rationale": "工具判 High 係假設 `asset` 為任意 ERC20。本專案的 `asset` 受 IsleGlobals.isPoolAsset 白名單控管（PoolConfigurator.sol:99），目前部署為無 transfer hook 的 USDC，另兩個取得控制權的地址（poolAdmin、isleVault）皆為協定自有。故實際可利用性需要額外的治理層失誤配合，降為 Medium；但因為修法成本極低且同檔其他函式已有防護，仍列為必須修復。",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        252,
+        289
+      ],
+      "description": "Reentrancy in LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289): External calls: - IERC20(asset).safeTransferFrom(msg.sender,address(this),principalAndInterest_) (contracts/LoanManager.sol#264) - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - returndata = address(token).functionCall(data,SafeERC20: low-level call failed) (modules/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#122) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) - IERC20(asset_).safeTransfer(_pool(),principal_ + netInterest_) (contracts/LoanManager.sol#875) - IERC20(asset_).safeTransfer(_poolAdmin(),adminFee_) (contracts/LoanManager.sol#876) - IERC20(asset_).safeTransfer(_vault(),protocolFee_) (contracts/LoanManager.sol#877) External calls sending eth: - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) State variables written after the call(s): - paymentIssuanceRate_ = _handlePaymentAccounting(loanId_) (contracts/LoanManager.sol#277) - accountedInterest -= SafeCast.toUint112(_min(accountedInterest,amount_)) (contracts/LoanManager.sol#617) LoanManagerStorage.accountedInterest (contracts/LoanManagerStorage.sol#13) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._compareAndSubtractAccountedInterest(uint256) (contracts/LoanManager.sol#612-618) - LoanManager._handleDefault(uint16,uint256,uint256) (contracts/LoanManager.sol#884-913) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManagerStorage.accountedInterest (contracts/LoanManagerStorage.sol#13) - LoanManager.assetsUnderManagement() (contracts/LoanManager.sol#115-117) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289) - LoanManager.updateAccounting() (contracts/LoanManager.sol#167-170) - delete paymentIdOf[loanId_] (contracts/LoanManager.sol#280) LoanManagerStorage.paymentIdOf (contracts/LoanManagerStorage.sol#20) can be used in cross function reentrancies: - LoanManager._deletePayment(uint16) (contracts/LoanManager.sol#719-722) - LoanManager._distributeClaimedFunds(uint16,uint256,uint256) (contracts/LoanManager.sol#855-878) - LoanManager._handlePaymentAccounting(uint16) (contracts/LoanManager.sol#724-765) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManagerStorage.paymentIdOf (contracts/LoanManagerStorage.sol#20) - LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289) - LoanManager.triggerDefault(uint16) (contracts/LoanManager.sol#419-455) - LoanManager.withdrawFunds(uint16,address) (contracts/LoanManager.sol#292-313) - paymentIssuanceRate_ = _handlePaymentAccounting(loanId_) (contracts/LoanManager.sol#277) - paymentWithEarliestDueDate = next_ (contracts/LoanManager.sol#837) LoanManagerStorage.paymentWithEarliestDueDate (contracts/LoanManagerStorage.sol#10) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._removePaymentFromList(uint256) (contracts/LoanManager.sol#830-849) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManagerStorage.paymentWithEarliestDueDate (contracts/LoanManagerStorage.sol#10) - paymentIssuanceRate_ = _handlePaymentAccounting(loanId_) (contracts/LoanManager.sol#277) - delete payments[paymentId_] (contracts/LoanManager.sol#735) LoanManagerStorage.payments (contracts/LoanManagerStorage.sol#22) can be used in cross function reentrancies: - LoanManager._accountToEndOfPayment(uint256,uint256,uint256,uint256) (contracts/LoanManager.sol#699-717) - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._deletePayment(uint16) (contracts/LoanManager.sol#719-722) - LoanManager._distributeClaimedFunds(uint16,uint256,uint256) (contracts/LoanManager.sol#855-878) - LoanManager._handlePaymentAccounting(uint16) (contracts/LoanManager.sol#724-765) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManagerStorage.payments (contracts/LoanManagerStorage.sol#22) - LoanManager.triggerDefault(uint16) (contracts/LoanManager.sol#419-455) - paymentIssuanceRate_ = _handlePaymentAccounting(loanId_) (contracts/LoanManager.sol#277) - sortedPayments[next_].previous = previous_ (contracts/LoanManager.sol#841) - sortedPayments[previous_].next = next_ (contracts/LoanManager.sol#845) - delete sortedPayments[paymentId_] (contracts/LoanManager.sol#848) LoanManagerStorage.sortedPayments (contracts/LoanManagerStorage.sol#23) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._removePaymentFromList(uint256) (contracts/LoanManager.sol#830-849) - LoanManagerStorage.sortedPayments (contracts/LoanManagerStorage.sol#23)",
+      "category": "A",
+      "dev_note": "成立。`repayLoan`（LoanManager.sol:252）缺少 `nonReentrant`，而同一份合約的 `fundLoan`（:231）與 `removeLoanImpairment`（:368）都有 —— 這是遺漏而非設計。不變量破口確實存在：步驟 4 `_distributeClaimedFunds` 已把 principal 轉進 pool（:875），步驟 5 才把 `principalOut` 減掉（:273），兩者之間 `_totalAssets()`（PoolConfigurator.sol:344 = pool 餘額 + AUM）會重複計入該筆本金，份額價格短暫虛高。逐行確認取得控制權的途徑有二：(a) `asset` 具備 transfer hook（ERC777/ERC1363）；(b) `_poolAdmin()` 或 `_vault()` 為可執行程式碼的地址（:876-877）。現行 `asset` 由 governor 白名單控管且為 USDC，故實際可利用性低，但修法成本只有一個 modifier。",
+      "remediation": "在 `repayLoan` 加上 `nonReentrant` modifier（與 `fundLoan`、`removeLoanImpairment` 一致）。另建議把步驟 5 的 `principalOut` 遞減移到步驟 4 的資金分配之前，讓 `_totalAssets()` 在整筆交易期間都不會重複計入本金。",
+      "title": "repayLoan 缺少 nonReentrant，重入期間份額價格被墊高",
+      "explanation": "`repayLoan`（LoanManager.sol:252）是借款人還款的入口，流程為收款 → 分配資金 → 更新帳務。同一份合約的 `fundLoan`（:231）與 `removeLoanImpairment`（:368）都帶 `nonReentrant`，唯獨這支沒有，是遺漏而非設計。問題出在步驟順序：步驟 4 的 `_distributeClaimedFunds` 已把本金轉進 pool（:875），步驟 5 才把 `principalOut` 減掉（:273）。這兩步之間，`_totalAssets()`（PoolConfigurator.sol:344 = pool 餘額 + AUM）會把同一筆本金計算兩次。",
+      "impact_detail": "在重入視窗內，`Pool` 的每股淨值被墊高。此時存入的人以偏高的價格買進份額（拿到較少份額），此時贖回的人則以偏高的價格賣出（拿走超額資產），差額由池內其餘存款人承擔。損失規模與該筆貸款本金同量級。此外 `totalAssets()` 是對外報價的基礎，任何以它計價的整合方在該視窗內都會取得錯誤數字。",
+      "proof_of_concept": "需先取得重入控制權，逐行確認途徑有二：(a) `asset` 為具 transfer hook 的代幣（ERC777／ERC1363），還款時的 `safeTransferFrom` 會回呼付款方；(b) `_poolAdmin()` 或 `_vault()` 為合約地址，手續費轉帳（:876-877）觸發其 `receive`／hook。取得控制權後，在步驟 4 與步驟 5 之間回呼 `Pool.deposit` 或 `Pool.redeem`，即以被墊高的份額價格成交。現行 `asset` 由 governor 白名單控管且部署為 USDC（無 hook），故目前不可直接利用；一旦白名單納入具 hook 的代幣，或 poolAdmin／vault 改為合約地址，即成立。"
+    },
+    {
+      "id": "ISL-03",
+      "scan_id": 3,
+      "source": "tool",
+      "check": "reentrancy-eth",
+      "impact": "High",
+      "severity": "Medium",
+      "severity_rationale": "同 ISL-02：同一函式、同一修法，降級理由一致。",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        252,
+        289
+      ],
+      "description": "Reentrancy in LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289): External calls: - IERC20(asset).safeTransferFrom(msg.sender,address(this),principalAndInterest_) (contracts/LoanManager.sol#264) - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - returndata = address(token).functionCall(data,SafeERC20: low-level call failed) (modules/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#122) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) - IERC20(asset_).safeTransfer(_pool(),principal_ + netInterest_) (contracts/LoanManager.sol#875) - IERC20(asset_).safeTransfer(_poolAdmin(),adminFee_) (contracts/LoanManager.sol#876) - IERC20(asset_).safeTransfer(_vault(),protocolFee_) (contracts/LoanManager.sol#877) - IReceivable(loan_.receivableAsset).burnReceivable(loan_.receivableTokenId) (contracts/LoanManager.sol#285) External calls sending eth: - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) State variables written after the call(s): - _updateIssuanceParams(issuanceRate - paymentIssuanceRate_,accountedInterest) (contracts/LoanManager.sol#288) - IssuanceParamsUpdated(domainEnd = block.timestamp.toUint48(),issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) - IssuanceParamsUpdated(domainEnd = payments[earliestPayment_].dueDate,issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) LoanManagerStorage.accountedInterest (contracts/LoanManagerStorage.sol#13) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._compareAndSubtractAccountedInterest(uint256) (contracts/LoanManager.sol#612-618) - LoanManager._handleDefault(uint16,uint256,uint256) (contracts/LoanManager.sol#884-913) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManagerStorage.accountedInterest (contracts/LoanManagerStorage.sol#13) - LoanManager.assetsUnderManagement() (contracts/LoanManager.sol#115-117) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289) - LoanManager.updateAccounting() (contracts/LoanManager.sol#167-170) - _updateIssuanceParams(issuanceRate - paymentIssuanceRate_,accountedInterest) (contracts/LoanManager.sol#288) - IssuanceParamsUpdated(domainEnd = block.timestamp.toUint48(),issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) - IssuanceParamsUpdated(domainEnd = payments[earliestPayment_].dueDate,issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) LoanManagerStorage.domainEnd (contracts/LoanManagerStorage.sol#12) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManagerStorage.domainEnd (contracts/LoanManagerStorage.sol#12) - _updateIssuanceParams(issuanceRate - paymentIssuanceRate_,accountedInterest) (contracts/LoanManager.sol#288) - IssuanceParamsUpdated(domainEnd = block.timestamp.toUint48(),issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) - IssuanceParamsUpdated(domainEnd = payments[earliestPayment_].dueDate,issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) LoanManagerStorage.issuanceRate (contracts/LoanManagerStorage.sol#16) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._handleDefault(uint16,uint256,uint256) (contracts/LoanManager.sol#884-913) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManager.accruedInterest() (contracts/LoanManager.sol#109-112) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManagerStorage.issuanceRate (contracts/LoanManagerStorage.sol#16) - LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289) - LoanManager.updateAccounting() (contracts/LoanManager.sol#167-170)",
+      "category": "A",
+      "dev_note": "成立。`repayLoan`（LoanManager.sol:252）缺少 `nonReentrant`，而同一份合約的 `fundLoan`（:231）與 `removeLoanImpairment`（:368）都有 —— 這是遺漏而非設計。不變量破口確實存在：步驟 4 `_distributeClaimedFunds` 已把 principal 轉進 pool（:875），步驟 5 才把 `principalOut` 減掉（:273），兩者之間 `_totalAssets()`（PoolConfigurator.sol:344 = pool 餘額 + AUM）會重複計入該筆本金，份額價格短暫虛高。逐行確認取得控制權的途徑有二：(a) `asset` 具備 transfer hook（ERC777/ERC1363）；(b) `_poolAdmin()` 或 `_vault()` 為可執行程式碼的地址（:876-877）。現行 `asset` 由 governor 白名單控管且為 USDC，故實際可利用性低，但修法成本只有一個 modifier。 本筆與 ISL-02 為 Slither 對同一函式不同狀態變數各報一次，同一個修法一併涵蓋。",
+      "remediation": "同 ISL-02，單一 `nonReentrant` modifier 即同時涵蓋兩筆。",
+      "title": "repayLoan 缺少 nonReentrant（同一函式的另一組狀態變數）",
+      "explanation": "與 ISL-02 為同一個缺陷：`repayLoan`（LoanManager.sol:252）缺少 `nonReentrant`。Slither 對同一函式的不同狀態變數各報一次，故產生兩筆發現。成因、影響與修法均與 ISL-02 相同。",
+      "impact_detail": "同 ISL-02：重入視窗內份額價格被墊高，存入方與贖回方分別以錯誤價格成交，差額由其餘存款人承擔。",
+      "proof_of_concept": "同 ISL-02：需 `asset` 具 transfer hook，或 `_poolAdmin()`／`_vault()` 為合約地址，於步驟 4、5 之間回呼 `Pool` 的存贖函式。單一 `nonReentrant` modifier 即同時封閉兩筆。"
+    },
+    {
+      "id": "ISL-04",
+      "scan_id": 4,
+      "source": "tool",
+      "check": "unchecked-transfer",
+      "impact": "High",
+      "severity": "High",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        235,
+        285
+      ],
+      "description": "WithdrawalManager.processExit(uint256,address) (contracts/WithdrawalManager.sol#235-285) ignores return value by IERC20(_pool()).transfer(owner_,redeemableShares_) (contracts/WithdrawalManager.sol#264)",
+      "category": "C",
+      "dev_note": "誤報。`_pool()` 回傳的是本協定自己由 PoolDeployer 部署的 `Pool` 合約（PoolConfigurator.sol:104-105、109），它繼承 OZ 的 `ERC20`，`transfer` 失敗時 revert、成功時固定回傳 `true`，不存在「回傳 false 而不 revert」的路徑。地址來源鏈為 `_poolConfigurator().pool()`，非外部可控。仍建議為一致性改用 `safeTransfer`。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-05",
+      "scan_id": 5,
+      "source": "tool",
+      "check": "unchecked-transfer",
+      "impact": "High",
+      "severity": "Medium",
+      "severity_rationale": "工具判 High 係假設代幣行為未知。目前部署資產為標準回傳 true 的 USDC，兩條失敗路徑都需要 governor 先把非標準代幣加進 `isPoolAsset` 白名單才會觸發，不是任何外部人可直接觸發的資金損失，故降為 Medium。但這是一行的修法，且缺陷會同時影響資金正確性與違約流程的可用性，仍列為必須修復。",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        382,
+        392
+      ],
+      "description": "PoolConfigurator._handleCover(uint256) (contracts/PoolConfigurator.sol#382-392) ignores return value by IERC20(asset).transfer(pool,coverAmount_) (contracts/PoolConfigurator.sol#389)",
+      "category": "A",
+      "dev_note": "成立。`_handleCover`（PoolConfigurator.sol:389）對 `asset` 使用原生 `transfer` 並忽略回傳值，而同一份合約其餘所有 `asset` 操作都走 SafeERC20（:185、:247、:256）—— 明顯的遺漏。`asset` 是 governor 白名單的任意 ERC20，兩種常見代幣都會出問題：(a) 回傳 false 而不 revert 的代幣 → `poolCover -= coverAmount_`（:387）已先扣減，cover 帳面減少但資金沒動，差額無法回復；(b) 完全不回傳資料的代幣（USDT 型）→ OZ `IERC20.transfer` 解碼空回傳值會 revert，使 `triggerDefault` 全面卡死、無法認列違約。",
+      "remediation": "改用 `IERC20(asset).safeTransfer(pool, coverAmount_)`（本檔已 `using SafeERC20 for IERC20`，無需新增 import）。並建議把 `poolCover -= coverAmount_` 移到轉帳成功之後。",
+      "title": "_handleCover 以原生 transfer 動用第一損失準備，回傳值未檢查",
+      "explanation": "`_handleCover`（PoolConfigurator.sol:389）在觸發違約時把第一損失準備（pool cover）撥給 pool，用的是原生 `transfer` 且忽略回傳值。同一份合約其餘所有 `asset` 操作都走 SafeERC20（:185、:247、:256），此處是明顯遺漏。`asset` 是 governor 白名單的任意 ERC20，不保證失敗時 revert。",
+      "impact_detail": "兩種常見代幣各自造成不同後果：(a) 回傳 false 而不 revert 的代幣 —— `poolCover -= coverAmount_`（:387）已先扣減，帳面準備金減少但資金並未轉出，差額無法回復，等同憑空蒸發一筆準備金；(b) 完全不回傳資料的代幣（USDT 型）—— OZ 的 `IERC20.transfer` 解碼空回傳值會 revert，使 `triggerDefault` 全面卡死，違約無法認列，損失無法從準備金吸收。後者發生的時機正是池子最需要違約流程的時候。",
+      "proof_of_concept": "不需要攻擊者，由代幣選擇決定：governor 將白名單納入回傳 false 型或無回傳值型的 ERC20 作為 pool asset，隨後任一筆貸款走到 `triggerDefault` → `_handleCover`，即分別重現 (a) 準備金帳實不符或 (b) 違約流程 revert。以 USDC 部署時不觸發。"
+    },
+    {
+      "id": "ISL-06",
+      "scan_id": 6,
+      "source": "tool",
+      "check": "unprotected-upgrade",
+      "impact": "High",
+      "severity": "High",
+      "severity_rationale": "",
+      "file": "contracts/Receivable.sol",
+      "lines": [
+        22,
+        119
+      ],
+      "description": "Receivable (contracts/Receivable.sol#22-119) is an upgradeable contract that does not protect its initialize functions: Receivable.initialize(address) (contracts/Receivable.sol#49-56). Anyone can delete the contract with: UUPSUpgradeable.upgradeTo(address) (modules/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol#68-71)UUPSUpgradeable.upgradeToAndCall(address,bytes) (modules/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol#83-86)",
+      "category": "C",
+      "dev_note": "誤報。Slither 的判定前提是「攻擊者可對 implementation 直接呼叫 initialize 取得控制權，再經 UUPS 升級路徑 selfdestruct 或改寫」。本專案的 OZ 版本為 v4.9.2，`UUPSUpgradeable.upgradeTo` 與 `upgradeToAndCall` 都帶 `onlyProxy` modifier（modules/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol:68、83），直接對 implementation 呼叫時 `address(this) == __self` 會 revert —— 升級路徑不可達，攻擊鏈的第二步就斷了。已逐一確認兩份合約皆無其他 `selfdestruct`、`delegatecall` 或可提領資產的函式，implementation 本身也不持有任何資產。 針對 Receivable 另外確認：implementation 上的 `isleGlobal` 為 0，`_authorizeUpgrade` 的 `governor()`（Receivable.sol:90-92）會對 address(0) 外部呼叫而 revert，構成第二道阻擋。仍建議補上 `constructor() { _disableInitializers(); }` 作為縱深防禦。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-07",
+      "scan_id": 7,
+      "source": "tool",
+      "check": "unprotected-upgrade",
+      "impact": "High",
+      "severity": "High",
+      "severity_rationale": "",
+      "file": "contracts/IsleGlobals.sol",
+      "lines": [
+        12,
+        125
+      ],
+      "description": "IsleGlobals (contracts/IsleGlobals.sol#12-125) is an upgradeable contract that does not protect its initialize functions: IsleGlobals.initialize(address) (contracts/IsleGlobals.sol#45-51). Anyone can delete the contract with: UUPSUpgradeable.upgradeTo(address) (modules/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol#68-71)UUPSUpgradeable.upgradeToAndCall(address,bytes) (modules/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol#83-86)",
+      "category": "C",
+      "dev_note": "誤報。Slither 的判定前提是「攻擊者可對 implementation 直接呼叫 initialize 取得控制權，再經 UUPS 升級路徑 selfdestruct 或改寫」。本專案的 OZ 版本為 v4.9.2，`UUPSUpgradeable.upgradeTo` 與 `upgradeToAndCall` 都帶 `onlyProxy` modifier（modules/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol:68、83），直接對 implementation 呼叫時 `address(this) == __self` 會 revert —— 升級路徑不可達，攻擊鏈的第二步就斷了。已逐一確認兩份合約皆無其他 `selfdestruct`、`delegatecall` 或可提領資產的函式，implementation 本身也不持有任何資產。 針對 IsleGlobals 另外確認：`initializer` 來自自製的 VersionedInitializable，在 implementation 自身 storage 上 `lastInitializedRevision` 確實為 0、可被任意人呼叫一次，但取得的只是一份沒有資產、沒有代理指向、且升級入口被 `onlyProxy` 擋住的孤兒 storage。仍建議在建構子鎖死 initializer。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-08",
+      "scan_id": 8,
+      "source": "tool",
+      "check": "divide-before-multiply",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        493,
+        511
+      ],
+      "description": "LoanManager._getLateInterest(uint256,uint256,uint256,uint256,uint256) (contracts/LoanManager.sol#493-511) performs a multiplication on the result of a division: - fullDaysLate_ = ((currentTime_ - dueDate_ + (86400 - 1)) / 86400) * 86400 (contracts/LoanManager.sol#508)",
+      "category": "C",
+      "dev_note": "誤報。`fullDaysLate_ = ((currentTime_ - dueDate_ + 86399) / 86400) * 86400`（LoanManager.sol:508）是刻意的「逾期天數無條件進位到整日」語意，先除後乘正是取整的手段，不是精度損失。此行為與鏈上實測一致：postmortem 以此公式重算 53 筆還款利息，與 `LoanRepaid` 事件分毫不差。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-09",
+      "scan_id": 9,
+      "source": "tool",
+      "check": "divide-before-multiply",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        767,
+        790
+      ],
+      "description": "LoanManager._queuePayment(uint16,uint256,uint256) (contracts/LoanManager.sol#767-790) performs a multiplication on the result of a division: - newRate_ = (_getNetInterest(interest_,feeRate_) * PRECISION) / (dueDate_ - startDate_) (contracts/LoanManager.sol#775) - payments[paymentId_] = Loan_Types.PaymentInfo({protocolFee:SafeCast.toUint24(protocolFee_),adminFee:SafeCast.toUint24(adminFee_),startDate:SafeCast.toUint48(startDate_),dueDate:SafeCast.toUint48(dueDate_),incomingNetInterest:SafeCast.toUint128(newRate_ * (dueDate_ - startDate_) / PRECISION),issuanceRate:newRate_}) (contracts/LoanManager.sol#780-787)",
+      "category": "B",
+      "dev_note": "屬實但可接受。`newRate_ = _getNetInterest(interest_, feeRate_) * PRECISION / (dueDate_ - startDate_)`（LoanManager.sol:775）之中，`interest_` 本身已在 `_getInterest` 內做過一次除法（:490），確實有先除後乘。但 `PRECISION = 1e27` 的放大倍率遠大於任何實際天期，捨入誤差在 wei 級；這也是上游 Maple v2 的原始寫法，經多輪外部審計。真正需要處理的不是這裡的捨入，而是 `_advanceGlobalPaymentAccounting` 把系統性重複入帳誤判為捨入誤差（見 ISL-105 與 LoanManager.sol:612-617 的註解）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-10",
+      "scan_id": 10,
+      "source": "tool",
+      "check": "divide-before-multiply",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        513,
+        522
+      ],
+      "description": "LoanManager._getPeriodicInterestRate(uint256,uint256) (contracts/LoanManager.sol#513-522) performs a multiplication on the result of a division: - periodicInterestRate_ = (interestRate_ * (SCALED_ONE / HUNDRED_PERCENT) * interval_) / uint256(31536000) (contracts/LoanManager.sol#521)",
+      "category": "C",
+      "dev_note": "誤報。`SCALED_ONE / HUNDRED_PERCENT` = 1e18 / 1e6 = 1e12，兩者皆為編譯期常數且整除，不產生任何餘數（LoanManager.sol:521）。Slither 只做語法比對，看不出被除數是常數。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-11",
+      "scan_id": 11,
+      "source": "tool",
+      "check": "incorrect-equality",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        633,
+        665
+      ],
+      "description": "LoanManager._getDefaultInterestAndFees(uint16,Loan_Types.PaymentInfo) (contracts/LoanManager.sol#633-665) uses a dangerous strict equality: - grossLateInterest_ == 0 (contracts/LoanManager.sol#661)",
+      "category": "C",
+      "dev_note": "誤報。Slither 的 incorrect-equality 針對的是「以嚴格等值比較餘額或時間戳」，本筆比較的是 `grossLateInterest_ == 0`（LoanManager.sol:661），用途是判別「這筆還款是否為逾期還款」以決定要不要按比例縮放管理費，語意上就是二值判斷，取值來自 `_getLateInterest` 的 `currentTime_ <= dueDate_ → return 0`（:504-506），不是餘額。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-12",
+      "scan_id": 12,
+      "source": "tool",
+      "check": "incorrect-equality",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        463,
+        469
+      ],
+      "description": "WithdrawalManager._emitProcess(address,uint256,uint256) (contracts/WithdrawalManager.sol#463-469) uses a dangerous strict equality: - sharesToRedeem_ == 0 (contracts/WithdrawalManager.sol#464)",
+      "category": "C",
+      "dev_note": "誤報。Slither 的 incorrect-equality 針對的是「以嚴格等值比較餘額或時間戳」，本筆比較的是 `sharesToRedeem_ == 0`（WithdrawalManager.sol:464），純粹決定要不要發事件，無任何資金或狀態後果。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-13",
+      "scan_id": 13,
+      "source": "tool",
+      "check": "incorrect-equality",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        109,
+        112
+      ],
+      "description": "LoanManager.accruedInterest() (contracts/LoanManager.sol#109-112) uses a dangerous strict equality: - issuanceRate_ == 0 (contracts/LoanManager.sol#111)",
+      "category": "C",
+      "dev_note": "誤報。Slither 的 incorrect-equality 針對的是「以嚴格等值比較餘額或時間戳」，本筆比較的是 `issuanceRate_ == 0`（LoanManager.sol:111），用途是短路避免無謂運算。附帶說明：這一行在 postmortem 中是問題二的所在地，但缺陷是缺少 `_min(block.timestamp, domainEnd)` 上限，與這個等值比較無關；該缺陷已另立 ISL-106。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-14",
+      "scan_id": 14,
+      "source": "tool",
+      "check": "incorrect-equality",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        292,
+        300
+      ],
+      "description": "WithdrawalManager.isInExitWindow(address) (contracts/WithdrawalManager.sol#292-300) uses a dangerous strict equality: - exitCycleId_ == 0 (contracts/WithdrawalManager.sol#295)",
+      "category": "C",
+      "dev_note": "誤報。Slither 的 incorrect-equality 針對的是「以嚴格等值比較餘額或時間戳」，本筆比較的是 `exitCycleId_ == 0`（WithdrawalManager.sol:295），`0` 是「無提領請求」的哨兵值（processExit 於 :276 明確寫入 0），不是可被外部操縱的數量。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-15",
+      "scan_id": 15,
+      "source": "tool",
+      "check": "incorrect-equality",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        452,
+        461
+      ],
+      "description": "WithdrawalManager._emitUpdate(address,uint256,uint256) (contracts/WithdrawalManager.sol#452-461) uses a dangerous strict equality: - lockedShares_ == 0 (contracts/WithdrawalManager.sol#453)",
+      "category": "C",
+      "dev_note": "誤報。Slither 的 incorrect-equality 針對的是「以嚴格等值比較餘額或時間戳」，本筆比較的是 `lockedShares_ == 0`（WithdrawalManager.sol:453），決定發 `WithdrawalCancelled` 還是 `WithdrawalUpdated`，無資金後果。另已確認此處的早退同時保護了 `getWindowAtId(0)` 不被呼叫（該路徑會在 getConfigAtId underflow）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-16",
+      "scan_id": 16,
+      "source": "tool",
+      "check": "reentrancy-no-eth",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        231,
+        249
+      ],
+      "description": "Reentrancy in LoanManager.fundLoan(uint16) (contracts/LoanManager.sol#231-249): External calls: - IPoolConfigurator(_poolConfigurator()).requestFunds(principal_) (contracts/LoanManager.sol#238) State variables written after the call(s): - loanStorage_.startDate = block.timestamp (contracts/LoanManager.sol#242) LoanManagerStorage._loans (contracts/LoanManagerStorage.sol#26) can be used in cross function reentrancies: - LoanManager._handleDefault(uint16,uint256,uint256) (contracts/LoanManager.sol#884-913) - LoanManager.getLoanInfo(uint16) (contracts/LoanManager.sol#104-106) - LoanManager.getLoanPaymentBreakdown(uint16) (contracts/LoanManager.sol#140-160) - LoanManager.getLoanPaymentDetailedBreakdown(uint16) (contracts/LoanManager.sol#120-137) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289) - LoanManager.requestLoan(address,uint256,uint256,uint256,uint256[2]) (contracts/LoanManager.sol#173-228) - LoanManager.triggerDefault(uint16) (contracts/LoanManager.sol#419-455) - LoanManager.withdrawFunds(uint16,address) (contracts/LoanManager.sol#292-313) - loanStorage_.drawableFunds = principal_ (contracts/LoanManager.sol#243) LoanManagerStorage._loans (contracts/LoanManagerStorage.sol#26) can be used in cross function reentrancies: - LoanManager._handleDefault(uint16,uint256,uint256) (contracts/LoanManager.sol#884-913) - LoanManager.getLoanInfo(uint16) (contracts/LoanManager.sol#104-106) - LoanManager.getLoanPaymentBreakdown(uint16) (contracts/LoanManager.sol#140-160) - LoanManager.getLoanPaymentDetailedBreakdown(uint16) (contracts/LoanManager.sol#120-137) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289) - LoanManager.requestLoan(address,uint256,uint256,uint256,uint256[2]) (contracts/LoanManager.sol#173-228) - LoanManager.triggerDefault(uint16) (contracts/LoanManager.sol#419-455) - LoanManager.withdrawFunds(uint16,address) (contracts/LoanManager.sol#292-313) - _updateIssuanceParams(issuanceRate + _queuePayment(loanId_,block.timestamp,loan_.dueDate),accountedInterest) (contracts/LoanManager.sol#248) - IssuanceParamsUpdated(domainEnd = block.timestamp.toUint48(),issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) - IssuanceParamsUpdated(domainEnd = payments[earliestPayment_].dueDate,issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) LoanManagerStorage.accountedInterest (contracts/LoanManagerStorage.sol#13) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._compareAndSubtractAccountedInterest(uint256) (contracts/LoanManager.sol#612-618) - LoanManager._handleDefault(uint16,uint256,uint256) (contracts/LoanManager.sol#884-913) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManagerStorage.accountedInterest (contracts/LoanManagerStorage.sol#13) - LoanManager.assetsUnderManagement() (contracts/LoanManager.sol#115-117) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289) - LoanManager.updateAccounting() (contracts/LoanManager.sol#167-170) - _updateIssuanceParams(issuanceRate + _queuePayment(loanId_,block.timestamp,loan_.dueDate),accountedInterest) (contracts/LoanManager.sol#248) - IssuanceParamsUpdated(domainEnd = block.timestamp.toUint48(),issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) - IssuanceParamsUpdated(domainEnd = payments[earliestPayment_].dueDate,issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) LoanManagerStorage.domainEnd (contracts/LoanManagerStorage.sol#12) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManagerStorage.domainEnd (contracts/LoanManagerStorage.sol#12) - _updateIssuanceParams(issuanceRate + _queuePayment(loanId_,block.timestamp,loan_.dueDate),accountedInterest) (contracts/LoanManager.sol#248) - IssuanceParamsUpdated(domainEnd = block.timestamp.toUint48(),issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) - IssuanceParamsUpdated(domainEnd = payments[earliestPayment_].dueDate,issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) LoanManagerStorage.issuanceRate (contracts/LoanManagerStorage.sol#16) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._handleDefault(uint16,uint256,uint256) (contracts/LoanManager.sol#884-913) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManager.accruedInterest() (contracts/LoanManager.sol#109-112) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManagerStorage.issuanceRate (contracts/LoanManagerStorage.sol#16) - LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289) - LoanManager.updateAccounting() (contracts/LoanManager.sol#167-170) - _updateIssuanceParams(issuanceRate + _queuePayment(loanId_,block.timestamp,loan_.dueDate),accountedInterest) (contracts/LoanManager.sol#248) - paymentWithEarliestDueDate = paymentId_ (contracts/LoanManager.sol#819) LoanManagerStorage.paymentWithEarliestDueDate (contracts/LoanManagerStorage.sol#10) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._removePaymentFromList(uint256) (contracts/LoanManager.sol#830-849) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManagerStorage.paymentWithEarliestDueDate (contracts/LoanManagerStorage.sol#10) - _updateIssuanceParams(issuanceRate + _queuePayment(loanId_,block.timestamp,loan_.dueDate),accountedInterest) (contracts/LoanManager.sol#248) - payments[paymentId_] = Loan_Types.PaymentInfo({protocolFee:SafeCast.toUint24(protocolFee_),adminFee:SafeCast.toUint24(adminFee_),startDate:SafeCast.toUint48(startDate_),dueDate:SafeCast.toUint48(dueDate_),incomingNetInterest:SafeCast.toUint128(newRate_ * (dueDate_ - startDate_) / PRECISION),issuanceRate:newRate_}) (contracts/LoanManager.sol#780-787) LoanManagerStorage.payments (contracts/LoanManagerStorage.sol#22) can be used in cross function reentrancies: - LoanManager._accountToEndOfPayment(uint256,uint256,uint256,uint256) (contracts/LoanManager.sol#699-717) - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._deletePayment(uint16) (contracts/LoanManager.sol#719-722) - LoanManager._distributeClaimedFunds(uint16,uint256,uint256) (contracts/LoanManager.sol#855-878) - LoanManager._handlePaymentAccounting(uint16) (contracts/LoanManager.sol#724-765) - LoanManager._updateIssuanceParams(uint256,uint112) (contracts/LoanManager.sol#597-606) - LoanManager.impairLoan(uint16) (contracts/LoanManager.sol#316-365) - LoanManagerStorage.payments (contracts/LoanManagerStorage.sol#22) - LoanManager.triggerDefault(uint16) (contracts/LoanManager.sol#419-455) - _updateIssuanceParams(issuanceRate + _queuePayment(loanId_,block.timestamp,loan_.dueDate),accountedInterest) (contracts/LoanManager.sol#248) - sortedPayments[current_].next = paymentId_ (contracts/LoanManager.sol#817) - sortedPayments[next_].previous = paymentId_ (contracts/LoanManager.sol#823) - sortedPayments[paymentId_] = Loan_Types.SortedPayment({previous:current_,next:next_,paymentDueDate:paymentDueDate_}) (contracts/LoanManager.sol#826-827) LoanManagerStorage.sortedPayments (contracts/LoanManagerStorage.sol#23) can be used in cross function reentrancies: - LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) - LoanManager._removePaymentFromList(uint256) (contracts/LoanManager.sol#830-849) - LoanManagerStorage.sortedPayments (contracts/LoanManagerStorage.sol#23)",
+      "category": "C",
+      "dev_note": "誤報。`fundLoan`（LoanManager.sol:231）本身帶 `nonReentrant`，Slither 不追蹤自製的 ReentrancyGuardUpgradeable（libraries/ReentrancyGuard.sol:30-39，ERC-7201 命名空間 storage）因此無法辨識。已確認該 modifier 的 `$._status` 讀寫邏輯正確。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-17",
+      "scan_id": 17,
+      "source": "tool",
+      "check": "reentrancy-no-eth",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/PoolAddressesProvider.sol",
+      "lines": [
+        166,
+        179
+      ],
+      "description": "Reentrancy in PoolAddressesProvider._updateImpl(bytes32,address,bytes) (contracts/PoolAddressesProvider.sol#166-179): External calls: - proxy = new TransparentUpgradeableProxy(newAddress,address(this),params) (contracts/PoolAddressesProvider.sol#172) State variables written after the call(s): - _addresses[id] = proxyAddress = address(proxy) (contracts/PoolAddressesProvider.sol#173) PoolAddressesProvider._addresses (contracts/PoolAddressesProvider.sol#17) can be used in cross function reentrancies: - PoolAddressesProvider._getProxyImplementation(bytes32) (contracts/PoolAddressesProvider.sol#195-203) - PoolAddressesProvider._updateImpl(bytes32,address,bytes) (contracts/PoolAddressesProvider.sol#166-179) - PoolAddressesProvider.constructor(string,IIsleGlobals) (contracts/PoolAddressesProvider.sol#36-43) - PoolAddressesProvider.getAddress(bytes32) (contracts/PoolAddressesProvider.sol#140-142) - PoolAddressesProvider.setAddress(bytes32,address) (contracts/PoolAddressesProvider.sol#145-149) - PoolAddressesProvider.setAddressAsProxy(bytes32,address,bytes) (contracts/PoolAddressesProvider.sol#108-121) - PoolAddressesProvider.setIsleGlobals(address) (contracts/PoolAddressesProvider.sol#133-137)",
+      "category": "B",
+      "dev_note": "屬實但可接受。`_updateImpl`（PoolAddressesProvider.sol:166-179）先 `new TransparentUpgradeableProxy`（:172，建構子會 delegatecall 到 implementation 的 initialize）才寫 `_addresses[id]`（:173）。重入需要 implementation 在 initialize 期間回呼 provider，而 implementation 是 governor 自己指定的合約，`_updateImpl` 全部入口皆 `onlyGovernor`。這屬於「governor 部署惡意 implementation」的既有信任範圍（見 ISL-113），不是額外的攻擊面。建議仍調整為先寫入再部署。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-18",
+      "scan_id": 18,
+      "source": "tool",
+      "check": "reentrancy-no-eth",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        235,
+        285
+      ],
+      "description": "Reentrancy in WithdrawalManager.processExit(uint256,address) (contracts/WithdrawalManager.sol#235-285): External calls: - IERC20(_pool()).transfer(owner_,redeemableShares_) (contracts/WithdrawalManager.sol#264) State variables written after the call(s): - exitCycleId[owner_] = exitCycleId_ (contracts/WithdrawalManager.sol#280) WithdrawalManagerStorage.exitCycleId (contracts/WithdrawalManagerStorage.sol#12) can be used in cross function reentrancies: - WithdrawalManager.addShares(uint256,address) (contracts/WithdrawalManager.sol#161-188) - WithdrawalManagerStorage.exitCycleId (contracts/WithdrawalManagerStorage.sol#12) - WithdrawalManager.getRedeemableAmounts(uint256,address) (contracts/WithdrawalManager.sol#403-426) - WithdrawalManager.isInExitWindow(address) (contracts/WithdrawalManager.sol#292-300) - WithdrawalManager.previewRedeem(address,uint256) (contracts/WithdrawalManager.sol#319-343) - WithdrawalManager.processExit(uint256,address) (contracts/WithdrawalManager.sol#235-285) - WithdrawalManager.removeShares(uint256,address) (contracts/WithdrawalManager.sol#191-232) - lockedShares[owner_] = lockedShares_ (contracts/WithdrawalManager.sol#281) WithdrawalManagerStorage.lockedShares (contracts/WithdrawalManagerStorage.sol#13) can be used in cross function reentrancies: - WithdrawalManager.addShares(uint256,address) (contracts/WithdrawalManager.sol#161-188) - WithdrawalManagerStorage.lockedShares (contracts/WithdrawalManagerStorage.sol#13) - WithdrawalManager.previewRedeem(address,uint256) (contracts/WithdrawalManager.sol#319-343) - WithdrawalManager.processExit(uint256,address) (contracts/WithdrawalManager.sol#235-285) - WithdrawalManager.removeShares(uint256,address) (contracts/WithdrawalManager.sol#191-232) - totalCycleShares[exitCycleId_] -= lockedShares_ (contracts/WithdrawalManager.sol#266) WithdrawalManagerStorage.totalCycleShares (contracts/WithdrawalManagerStorage.sol#14) can be used in cross function reentrancies: - WithdrawalManager.addShares(uint256,address) (contracts/WithdrawalManager.sol#161-188) - WithdrawalManager.getRedeemableAmounts(uint256,address) (contracts/WithdrawalManager.sol#403-426) - WithdrawalManager.lockedLiquidity() (contracts/WithdrawalManager.sol#303-316) - WithdrawalManager.processExit(uint256,address) (contracts/WithdrawalManager.sol#235-285) - WithdrawalManager.removeShares(uint256,address) (contracts/WithdrawalManager.sol#191-232) - WithdrawalManagerStorage.totalCycleShares (contracts/WithdrawalManagerStorage.sol#14) - totalCycleShares[exitCycleId_] += lockedShares_ (contracts/WithdrawalManager.sol#274) WithdrawalManagerStorage.totalCycleShares (contracts/WithdrawalManagerStorage.sol#14) can be used in cross function reentrancies: - WithdrawalManager.addShares(uint256,address) (contracts/WithdrawalManager.sol#161-188) - WithdrawalManager.getRedeemableAmounts(uint256,address) (contracts/WithdrawalManager.sol#403-426) - WithdrawalManager.lockedLiquidity() (contracts/WithdrawalManager.sol#303-316) - WithdrawalManager.processExit(uint256,address) (contracts/WithdrawalManager.sol#235-285) - WithdrawalManager.removeShares(uint256,address) (contracts/WithdrawalManager.sol#191-232) - WithdrawalManagerStorage.totalCycleShares (contracts/WithdrawalManagerStorage.sol#14)",
+      "category": "C",
+      "dev_note": "誤報。`processExit`（WithdrawalManager.sol:235）的外部呼叫是 `IERC20(_pool()).transfer`（:264），對象是本協定自己部署的 OZ ERC20 `Pool`，無 transfer hook、無回呼路徑。呼叫者另受 `onlyPoolConfigurator` 限制（:241）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-19",
+      "scan_id": 19,
+      "source": "tool",
+      "check": "uninitialized-local",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        556,
+        556
+      ],
+      "description": "LoanManager._advanceGlobalPaymentAccounting().accountedInterest_ (contracts/LoanManager.sol#556) is a local variable never initialized",
+      "category": "C",
+      "dev_note": "誤報。`uint256 accountedInterest_;`（LoanManager.sol:556）刻意以預設值 0 起算，作為 while 迴圈的累加器（:574），是正確且必要的寫法。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-20",
+      "scan_id": 20,
+      "source": "tool",
+      "check": "unused-return",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        201,
+        210
+      ],
+      "description": "PoolConfigurator.requestRedeem(uint256,address) (contracts/PoolConfigurator.sol#201-210) ignores return value by IPool(pool_).approve(address(withdrawalManager_),shares_) (contracts/PoolConfigurator.sol#205)",
+      "category": "C",
+      "dev_note": "誤報。`IPool(pool_).approve(...)`（PoolConfigurator.sol:205）的對象是本協定自己的 OZ ERC20 `Pool`，`approve` 固定回傳 true 或 revert，不存在靜默失敗。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-21",
+      "scan_id": 21,
+      "source": "tool",
+      "check": "unused-return",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        318,
+        320
+      ],
+      "description": "PoolConfigurator.previewRedeem(address,uint256) (contracts/PoolConfigurator.sol#318-320) ignores return value by (None,assets_) = _withdrawalManager().previewRedeem(owner_,shares_) (contracts/PoolConfigurator.sol#319)",
+      "category": "C",
+      "dev_note": "誤報。`(, assets_) = _withdrawalManager().previewRedeem(...)`（PoolConfigurator.sol:319）刻意只取第二個回傳值；第一個是 `redeemableShares_`，在這個 view 介面上不需要。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-22",
+      "scan_id": 22,
+      "source": "tool",
+      "check": "unused-return",
+      "impact": "Medium",
+      "severity": "Medium",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        195,
+        198
+      ],
+      "description": "PoolConfigurator.triggerDefault(uint16) (contracts/PoolConfigurator.sol#195-198) ignores return value by (losses_,None) = _loanManager().triggerDefault(loanId_) (contracts/PoolConfigurator.sol#196)",
+      "category": "C",
+      "dev_note": "誤報。`(losses_, ) = _loanManager().triggerDefault(loanId_)`（PoolConfigurator.sol:196）刻意忽略第二個回傳值 `protocolFees_` —— 協定費已在 `_handleDefault` 內部處理完畢，此處只需要損失金額餵給 `_handleCover`。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-23",
+      "scan_id": 23,
+      "source": "tool",
+      "check": "shadowing-local",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/libraries/upgradability/UUPSProxy.sol",
+      "lines": [
+        7,
+        7
+      ],
+      "description": "UUPSProxy.constructor(address,bytes)._implementation (contracts/libraries/upgradability/UUPSProxy.sol#7) shadows: - ERC1967Proxy._implementation() (modules/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol#29-31) (function) - Proxy._implementation() (modules/openzeppelin-contracts/contracts/proxy/Proxy.sol#51) (function)",
+      "category": "C",
+      "dev_note": "誤報。`UUPSProxy` 建構子參數 `_implementation`（libraries/upgradability/UUPSProxy.sol:7）遮蔽 OZ `ERC1967Upgrade._implementation()` 的函式名。這是建構子區域參數，生命週期僅在部署交易內，且該合約沒有任何其他邏輯（整份檔案 8 行）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-24",
+      "scan_id": 24,
+      "source": "tool",
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        129,
+        129
+      ],
+      "description": "PoolConfigurator.setBuyer(address).buyer_ (contracts/PoolConfigurator.sol#129) lacks a zero-check on : - BuyerSet(buyer = buyer_) (contracts/PoolConfigurator.sol#130)",
+      "category": "B",
+      "dev_note": "屬實但可接受。`setBuyer(address(0))`（PoolConfigurator.sol:129-131）不會造成資金風險，只會讓 `_revertIfInvalidReceivable` 的 `poolConfigurator_.buyer() != buyer_`（LoanManager.sol:960）恆為真，使新貸款無法申請 —— 效果等同暫停放款，且 admin 可隨時再設回來。既有貸款不受影響。建議仍補上零地址檢查以免誤操作。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-25",
+      "scan_id": 25,
+      "source": "tool",
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        104,
+        105
+      ],
+      "description": "PoolConfigurator.initialize(IPoolAddressesProvider,address,address,string,string).pool_ (contracts/PoolConfigurator.sol#104-105) lacks a zero-check on : - pool = pool_ (contracts/PoolConfigurator.sol#109)",
+      "category": "C",
+      "dev_note": "誤報。`pool_` 來自同一函式內 `PoolDeployer.createPool` 的回傳值（PoolConfigurator.sol:104-105），`new Pool(...)` 不可能回傳零地址，不是外部傳入的參數。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-26",
+      "scan_id": 26,
+      "source": "tool",
+      "check": "reentrancy-benign",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        246,
+        250
+      ],
+      "description": "Reentrancy in PoolConfigurator.depositCover(uint256) (contracts/PoolConfigurator.sol#246-250): External calls: - IERC20(asset).safeTransferFrom(msg.sender,address(this),amount_) (contracts/PoolConfigurator.sol#247) State variables written after the call(s): - poolCover += amount_ (contracts/PoolConfigurator.sol#248)",
+      "category": "C",
+      "dev_note": "誤報。`depositCover`（PoolConfigurator.sol:246-250）在 `safeTransferFrom` 之後才 `poolCover += amount_`，這是正確順序：先確認資金真的收到再記帳。重入回來只會再走一次完整的收款+記帳，不產生額外額度。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-27",
+      "scan_id": 27,
+      "source": "tool",
+      "check": "reentrancy-benign",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        287,
+        299
+      ],
+      "description": "Reentrancy in Pool._deposit(address,address,uint256,uint256) (contracts/Pool.sol#287-299): External calls: - SafeERC20.safeTransferFrom(_asset,caller,address(this),assets) (contracts/Pool.sol#295) State variables written after the call(s): - _mint(receiver,shares) (contracts/Pool.sol#296) - _balances[account] += amount (modules/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol#259) - _mint(receiver,shares) (contracts/Pool.sol#296) - _totalSupply += amount (modules/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol#256)",
+      "category": "C",
+      "dev_note": "誤報。`Pool._deposit`（Pool.sol:287-299）先轉帳後 mint 是 OZ ERC4626 的標準寫法，原始碼 :288-294 有完整註解說明此順序刻意用於防範 ERC777 重入，且該處已有 `slither-disable-next-line reentrancy-no-eth`。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-28",
+      "scan_id": 28,
+      "source": "tool",
+      "check": "reentrancy-benign",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        253,
+        265
+      ],
+      "description": "Reentrancy in PoolConfigurator.withdrawCover(uint256,address) (contracts/PoolConfigurator.sol#253-265): External calls: - IERC20(asset).safeTransfer(recipient_,amount_) (contracts/PoolConfigurator.sol#256) State variables written after the call(s): - poolCover -= amount_ (contracts/PoolConfigurator.sol#258)",
+      "category": "B",
+      "dev_note": "屬實但可接受。`withdrawCover`（PoolConfigurator.sol:253-265）先 `safeTransfer`（:256）後 `poolCover -= amount_`（:258），順序確實顛倒。但呼叫者受 `onlyAdmin` 限制，且 `poolCover -= amount_` 在 0.8.19 下溢時 revert、函式尾端另有 `_hasSufficientCover()` 檢查（:260-262），重入只能重複走完整流程並在額度耗盡時 revert，無法超額提領。建議仍調整為先扣減後轉帳。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-29",
+      "scan_id": 29,
+      "source": "tool",
+      "check": "reentrancy-benign",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        76,
+        112
+      ],
+      "description": "Reentrancy in PoolConfigurator.initialize(IPoolAddressesProvider,address,address,string,string) (contracts/PoolConfigurator.sol#76-112): External calls: - pool_ = PoolDeployer.createPool({configurator_:address(this),asset_:asset_,name_:name_,symbol_:symbol_}) (contracts/PoolConfigurator.sol#104-105) State variables written after the call(s): - admin = poolAdmin_ (contracts/PoolConfigurator.sol#107) - asset = asset_ (contracts/PoolConfigurator.sol#108) - pool = pool_ (contracts/PoolConfigurator.sol#109)",
+      "category": "C",
+      "dev_note": "誤報。`initialize`（PoolConfigurator.sol:76-112）的外部呼叫是 `PoolDeployer.createPool`（:104-105），`new Pool(...)` 的建構子只呼叫 `asset.approve` 與 `asset.decimals`，不會回呼 configurator；且 `initializer` modifier 本身即阻擋重入。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-30",
+      "scan_id": 30,
+      "source": "tool",
+      "check": "reentrancy-benign",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        252,
+        289
+      ],
+      "description": "Reentrancy in LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289): External calls: - IERC20(asset).safeTransferFrom(msg.sender,address(this),principalAndInterest_) (contracts/LoanManager.sol#264) - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - returndata = address(token).functionCall(data,SafeERC20: low-level call failed) (modules/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#122) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) - IERC20(asset_).safeTransfer(_pool(),principal_ + netInterest_) (contracts/LoanManager.sol#875) - IERC20(asset_).safeTransfer(_poolAdmin(),adminFee_) (contracts/LoanManager.sol#876) - IERC20(asset_).safeTransfer(_vault(),protocolFee_) (contracts/LoanManager.sol#877) External calls sending eth: - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) State variables written after the call(s): - paymentIssuanceRate_ = _handlePaymentAccounting(loanId_) (contracts/LoanManager.sol#277) - delete liquidationInfoFor[loanId_] (contracts/LoanManager.sol#742) - PrincipalOutUpdated(principalOut -= SafeCast.toUint128(principal_)) (contracts/LoanManager.sol#273) - paymentIssuanceRate_ = _handlePaymentAccounting(loanId_) (contracts/LoanManager.sol#277) - unrealizedLosses -= SafeCast.toUint128(liquidationInfo_.principal + liquidationInfo_.interest) (contracts/LoanManager.sol#794)",
+      "category": "C",
+      "dev_note": "誤報（與 ISL-02 同一函式的 benign 變體）。此筆指的是事件與狀態變數的相對順序，真正需要處理的重入面向已在 ISL-02 列為必須修復，修法相同，不重複計列。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-31",
+      "scan_id": 31,
+      "source": "tool",
+      "check": "reentrancy-benign",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        231,
+        249
+      ],
+      "description": "Reentrancy in LoanManager.fundLoan(uint16) (contracts/LoanManager.sol#231-249): External calls: - IPoolConfigurator(_poolConfigurator()).requestFunds(principal_) (contracts/LoanManager.sol#238) State variables written after the call(s): - _updateIssuanceParams(issuanceRate + _queuePayment(loanId_,block.timestamp,loan_.dueDate),accountedInterest) (contracts/LoanManager.sol#248) - paymentId_ = ++ paymentCounter (contracts/LoanManager.sol#804) - _updateIssuanceParams(issuanceRate + _queuePayment(loanId_,block.timestamp,loan_.dueDate),accountedInterest) (contracts/LoanManager.sol#248) - paymentId_ = paymentIdOf[loanId_] = _addPaymentToList(SafeCast.toUint48(dueDate_)) (contracts/LoanManager.sol#778) - PrincipalOutUpdated(principalOut += principal_.toUint128()) (contracts/LoanManager.sol#245)",
+      "category": "C",
+      "dev_note": "誤報。同 ISL-16，`fundLoan` 已有 `nonReentrant`，Slither 無法辨識自製 guard。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-32",
+      "scan_id": 32,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        304,
+        319
+      ],
+      "description": "Reentrancy in Pool._withdraw(address,address,address,uint256,uint256) (contracts/Pool.sol#304-319): External calls: - SafeERC20.safeTransfer(_asset,receiver,assets) (contracts/Pool.sol#316) Event emitted after the call(s): - Withdraw(caller,receiver,owner,assets,shares) (contracts/Pool.sol#318)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：Pool._withdraw（Pool.sol:304-319）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-33",
+      "scan_id": 33,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/Receivable.sol",
+      "lines": [
+        59,
+        76
+      ],
+      "description": "Reentrancy in Receivable.createReceivable(Receivable_Types.Create) (contracts/Receivable.sol#59-76): External calls: - _safeMint(params_.seller,tokenId_) (contracts/Receivable.sol#72) - retval = IERC721ReceiverUpgradeable(to).onERC721Received(_msgSender(),from,tokenId,data) (modules/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol#411-422) Event emitted after the call(s): - AssetCreated(params_.buyer,params_.seller,tokenId_,params_.faceAmount,params_.repaymentTimestamp) (contracts/Receivable.sol#73)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：Receivable.createReceivable（Receivable.sol:59-76）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-34",
+      "scan_id": 34,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        292,
+        313
+      ],
+      "description": "Reentrancy in LoanManager.withdrawFunds(uint16,address) (contracts/LoanManager.sol#292-313): External calls: - IERC721(loan_.receivableAsset).safeTransferFrom(msg.sender,address(this),loan_.receivableTokenId) (contracts/LoanManager.sol#303) - IReceivable(loan_.receivableAsset).burnReceivable(loan_.receivableTokenId) (contracts/LoanManager.sol#307) - IERC20(asset).safeTransfer(destination_,drawableFunds_) (contracts/LoanManager.sol#310) Event emitted after the call(s): - FundsWithdrawn({loanId_:loanId_,amount_:drawableFunds_}) (contracts/LoanManager.sol#312)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：LoanManager.withdrawFunds（LoanManager.sol:292-313）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-35",
+      "scan_id": 35,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        252,
+        289
+      ],
+      "description": "Reentrancy in LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289): External calls: - IERC20(asset).safeTransferFrom(msg.sender,address(this),principalAndInterest_) (contracts/LoanManager.sol#264) - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - returndata = address(token).functionCall(data,SafeERC20: low-level call failed) (modules/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#122) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) - IERC20(asset_).safeTransfer(_pool(),principal_ + netInterest_) (contracts/LoanManager.sol#875) - IERC20(asset_).safeTransfer(_poolAdmin(),adminFee_) (contracts/LoanManager.sol#876) - IERC20(asset_).safeTransfer(_vault(),protocolFee_) (contracts/LoanManager.sol#877) - IReceivable(loan_.receivableAsset).burnReceivable(loan_.receivableTokenId) (contracts/LoanManager.sol#285) External calls sending eth: - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) Event emitted after the call(s): - IssuanceParamsUpdated(domainEnd = block.timestamp.toUint48(),issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) - _updateIssuanceParams(issuanceRate - paymentIssuanceRate_,accountedInterest) (contracts/LoanManager.sol#288) - IssuanceParamsUpdated(domainEnd = payments[earliestPayment_].dueDate,issuanceRate = issuanceRate_,accountedInterest = accountedInterest_) (contracts/LoanManager.sol#601-605) - _updateIssuanceParams(issuanceRate - paymentIssuanceRate_,accountedInterest) (contracts/LoanManager.sol#288)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：LoanManager.repayLoan（LoanManager.sol:252-289）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-36",
+      "scan_id": 36,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        47,
+        68
+      ],
+      "description": "Reentrancy in Pool.depositWithPermit(uint256,address,uint256,uint8,bytes32,bytes32) (contracts/Pool.sol#47-68): External calls: - _asset.permit(_msgSender(),address(this),assets_,deadline_,v_,r_,s_) (contracts/Pool.sol#64) - _deposit(_msgSender(),receiver_,assets_,shares_) (contracts/Pool.sol#67) - SafeERC20.safeTransferFrom(_asset,caller,address(this),assets) (contracts/Pool.sol#295) - returndata = address(token).functionCall(data,SafeERC20: low-level call failed) (modules/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#122) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) External calls sending eth: - _deposit(_msgSender(),receiver_,assets_,shares_) (contracts/Pool.sol#67) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) Event emitted after the call(s): - Deposit(caller,receiver,assets,shares) (contracts/Pool.sol#298) - _deposit(_msgSender(),receiver_,assets_,shares_) (contracts/Pool.sol#67) - Transfer(address(0),account,amount) (modules/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol#261) - _deposit(_msgSender(),receiver_,assets_,shares_) (contracts/Pool.sol#67)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：Pool.depositWithPermit（Pool.sol:47-68）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-37",
+      "scan_id": 37,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolAddressesProvider.sol",
+      "lines": [
+        82,
+        86
+      ],
+      "description": "Reentrancy in PoolAddressesProvider.setLoanManagerImpl(address,bytes) (contracts/PoolAddressesProvider.sol#82-86): External calls: - _updateImpl(LOAN_MANAGER,newLoanManagerImpl,params) (contracts/PoolAddressesProvider.sol#84) - proxy = new TransparentUpgradeableProxy(newAddress,address(this),params) (contracts/PoolAddressesProvider.sol#172) - Iproxy.upgradeToAndCall(newAddress,params) (contracts/PoolAddressesProvider.sol#177) Event emitted after the call(s): - LoanManagerUpdated(oldLoanManagerImpl,newLoanManagerImpl) (contracts/PoolAddressesProvider.sol#85)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：PoolAddressesProvider.setLoanManagerImpl（:82-86）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-38",
+      "scan_id": 38,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        197,
+        206
+      ],
+      "description": "Reentrancy in Pool.redeem(uint256,address,address) (contracts/Pool.sol#197-206): External calls: - (redeemableShares_,assets_) = IPoolConfigurator(configurator).processRedeem(shares_,owner_,_msgSender()) (contracts/Pool.sol#201) - _withdraw({caller:_msgSender(),receiver:receiver_,owner:owner_,assets:assets_,shares:redeemableShares_}) (contracts/Pool.sol#203-205) - returndata = address(token).functionCall(data,SafeERC20: low-level call failed) (modules/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#122) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) - SafeERC20.safeTransfer(_asset,receiver,assets) (contracts/Pool.sol#316) External calls sending eth: - _withdraw({caller:_msgSender(),receiver:receiver_,owner:owner_,assets:assets_,shares:redeemableShares_}) (contracts/Pool.sol#203-205) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) Event emitted after the call(s): - Approval(owner,spender,amount) (modules/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol#313) - _withdraw({caller:_msgSender(),receiver:receiver_,owner:owner_,assets:assets_,shares:redeemableShares_}) (contracts/Pool.sol#203-205) - Transfer(account,address(0),amount) (modules/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol#290) - _withdraw({caller:_msgSender(),receiver:receiver_,owner:owner_,assets:assets_,shares:redeemableShares_}) (contracts/Pool.sol#203-205) - Withdraw(caller,receiver,owner,assets,shares) (contracts/Pool.sol#318) - _withdraw({caller:_msgSender(),receiver:receiver_,owner:owner_,assets:assets_,shares:redeemableShares_}) (contracts/Pool.sol#203-205)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：Pool.redeem（Pool.sol:197-206）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-39",
+      "scan_id": 39,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        246,
+        250
+      ],
+      "description": "Reentrancy in PoolConfigurator.depositCover(uint256) (contracts/PoolConfigurator.sol#246-250): External calls: - IERC20(asset).safeTransferFrom(msg.sender,address(this),amount_) (contracts/PoolConfigurator.sol#247) Event emitted after the call(s): - CoverDeposited(amount_) (contracts/PoolConfigurator.sol#249)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：PoolConfigurator.depositCover（:246-250）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-40",
+      "scan_id": 40,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolAddressesProvider.sol",
+      "lines": [
+        63,
+        74
+      ],
+      "description": "Reentrancy in PoolAddressesProvider.setPoolConfiguratorImpl(address,bytes) (contracts/PoolAddressesProvider.sol#63-74): External calls: - _updateImpl(POOL_CONFIGURATOR,newPoolConfiguratorImpl,params) (contracts/PoolAddressesProvider.sol#72) - proxy = new TransparentUpgradeableProxy(newAddress,address(this),params) (contracts/PoolAddressesProvider.sol#172) - Iproxy.upgradeToAndCall(newAddress,params) (contracts/PoolAddressesProvider.sol#177) Event emitted after the call(s): - PoolConfiguratorUpdated(oldPoolConfiguratorImpl,newPoolConfiguratorImpl) (contracts/PoolAddressesProvider.sol#73)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：PoolAddressesProvider.setPoolConfiguratorImpl（:63-74）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-41",
+      "scan_id": 41,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        161,
+        188
+      ],
+      "description": "Reentrancy in WithdrawalManager.addShares(uint256,address) (contracts/WithdrawalManager.sol#161-188): External calls: - IERC20(_pool()).safeTransferFrom(msg.sender,address(this),shares_) (contracts/WithdrawalManager.sol#185) Event emitted after the call(s): - WithdrawalCancelled(account_) (contracts/WithdrawalManager.sol#454) - _emitUpdate(owner_,lockedShares_,exitCycleId_) (contracts/WithdrawalManager.sol#187) - WithdrawalUpdated(account_,lockedShares_,windowStart_.toUint64(),windowEnd_.toUint64()) (contracts/WithdrawalManager.sol#460) - _emitUpdate(owner_,lockedShares_,exitCycleId_) (contracts/WithdrawalManager.sol#187)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：WithdrawalManager.addShares（:161-188）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-42",
+      "scan_id": 42,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        191,
+        232
+      ],
+      "description": "Reentrancy in WithdrawalManager.removeShares(uint256,address) (contracts/WithdrawalManager.sol#191-232): External calls: - IERC20(_pool()).safeTransfer(owner_,shares_) (contracts/WithdrawalManager.sol#229) Event emitted after the call(s): - WithdrawalCancelled(account_) (contracts/WithdrawalManager.sol#454) - _emitUpdate(owner_,lockedShares_,exitCycleId_) (contracts/WithdrawalManager.sol#231) - WithdrawalUpdated(account_,lockedShares_,windowStart_.toUint64(),windowEnd_.toUint64()) (contracts/WithdrawalManager.sol#460) - _emitUpdate(owner_,lockedShares_,exitCycleId_) (contracts/WithdrawalManager.sol#231)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：WithdrawalManager.removeShares（:191-232）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-43",
+      "scan_id": 43,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        287,
+        299
+      ],
+      "description": "Reentrancy in Pool._deposit(address,address,uint256,uint256) (contracts/Pool.sol#287-299): External calls: - SafeERC20.safeTransferFrom(_asset,caller,address(this),assets) (contracts/Pool.sol#295) Event emitted after the call(s): - Deposit(caller,receiver,assets,shares) (contracts/Pool.sol#298) - Transfer(address(0),account,amount) (modules/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol#261) - _mint(receiver,shares) (contracts/Pool.sol#296)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：Pool._deposit（Pool.sol:287-299）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-44",
+      "scan_id": 44,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        201,
+        210
+      ],
+      "description": "Reentrancy in PoolConfigurator.requestRedeem(uint256,address) (contracts/PoolConfigurator.sol#201-210): External calls: - IPool(pool_).approve(address(withdrawalManager_),shares_) (contracts/PoolConfigurator.sol#205) - withdrawalManager_.addShares(shares_,owner_) (contracts/PoolConfigurator.sol#207) Event emitted after the call(s): - RedeemRequested(owner_,shares_) (contracts/PoolConfigurator.sol#209)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：PoolConfigurator.requestRedeem（:201-210）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-45",
+      "scan_id": 45,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        252,
+        289
+      ],
+      "description": "Reentrancy in LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289): External calls: - IERC20(asset).safeTransferFrom(msg.sender,address(this),principalAndInterest_) (contracts/LoanManager.sol#264) - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - returndata = address(token).functionCall(data,SafeERC20: low-level call failed) (modules/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#122) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) - IERC20(asset_).safeTransfer(_pool(),principal_ + netInterest_) (contracts/LoanManager.sol#875) - IERC20(asset_).safeTransfer(_poolAdmin(),adminFee_) (contracts/LoanManager.sol#876) - IERC20(asset_).safeTransfer(_vault(),protocolFee_) (contracts/LoanManager.sol#877) External calls sending eth: - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) Event emitted after the call(s): - FeesPaid(loanId_,adminFee_,protocolFee_) (contracts/LoanManager.sol#870) - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - FundsDistributed(loanId_,principal_,netInterest_) (contracts/LoanManager.sol#871) - _distributeClaimedFunds(loanId_,principal_,interest_) (contracts/LoanManager.sol#269) - PaymentRemoved({loanId_:loanId_,paymentId_:paymentId_}) (contracts/LoanManager.sol#737) - paymentIssuanceRate_ = _handlePaymentAccounting(loanId_) (contracts/LoanManager.sol#277) - PrincipalOutUpdated(principalOut -= SafeCast.toUint128(principal_)) (contracts/LoanManager.sol#273) - UnrealizedLossesUpdated(unrealizedLosses) (contracts/LoanManager.sol#796) - paymentIssuanceRate_ = _handlePaymentAccounting(loanId_) (contracts/LoanManager.sol#277)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：LoanManager.repayLoan（LoanManager.sol:252-289，另一組事件）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-46",
+      "scan_id": 46,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        76,
+        112
+      ],
+      "description": "Reentrancy in PoolConfigurator.initialize(IPoolAddressesProvider,address,address,string,string) (contracts/PoolConfigurator.sol#76-112): External calls: - pool_ = PoolDeployer.createPool({configurator_:address(this),asset_:asset_,name_:name_,symbol_:symbol_}) (contracts/PoolConfigurator.sol#104-105) Event emitted after the call(s): - Initialized({poolAdmin_:poolAdmin_,asset_:asset_,pool_:pool_}) (contracts/PoolConfigurator.sol#111)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：PoolConfigurator.initialize（:76-112）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-47",
+      "scan_id": 47,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        195,
+        198
+      ],
+      "description": "Reentrancy in PoolConfigurator.triggerDefault(uint16) (contracts/PoolConfigurator.sol#195-198): External calls: - (losses_,None) = _loanManager().triggerDefault(loanId_) (contracts/PoolConfigurator.sol#196) - _handleCover(losses_) (contracts/PoolConfigurator.sol#197) - IERC20(asset).transfer(pool,coverAmount_) (contracts/PoolConfigurator.sol#389) Event emitted after the call(s): - CoverLiquidated(coverAmount_) (contracts/PoolConfigurator.sol#391) - _handleCover(losses_) (contracts/PoolConfigurator.sol#197)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：PoolConfigurator.triggerDefault（:195-198）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-48",
+      "scan_id": 48,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        253,
+        265
+      ],
+      "description": "Reentrancy in PoolConfigurator.withdrawCover(uint256,address) (contracts/PoolConfigurator.sol#253-265): External calls: - IERC20(asset).safeTransfer(recipient_,amount_) (contracts/PoolConfigurator.sol#256) Event emitted after the call(s): - CoverWithdrawn(amount_) (contracts/PoolConfigurator.sol#264)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：PoolConfigurator.withdrawCover（:253-265）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-49",
+      "scan_id": 49,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        382,
+        392
+      ],
+      "description": "Reentrancy in PoolConfigurator._handleCover(uint256) (contracts/PoolConfigurator.sol#382-392): External calls: - IERC20(asset).transfer(pool,coverAmount_) (contracts/PoolConfigurator.sol#389) Event emitted after the call(s): - CoverLiquidated(coverAmount_) (contracts/PoolConfigurator.sol#391)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：PoolConfigurator._handleCover（:382-392）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-50",
+      "scan_id": 50,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolAddressesProvider.sol",
+      "lines": [
+        166,
+        179
+      ],
+      "description": "Reentrancy in PoolAddressesProvider._updateImpl(bytes32,address,bytes) (contracts/PoolAddressesProvider.sol#166-179): External calls: - proxy = new TransparentUpgradeableProxy(newAddress,address(this),params) (contracts/PoolAddressesProvider.sol#172) Event emitted after the call(s): - ProxyCreated(id,proxyAddress,newAddress) (contracts/PoolAddressesProvider.sol#174)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：PoolAddressesProvider._updateImpl（:166-179）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-51",
+      "scan_id": 51,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        252,
+        289
+      ],
+      "description": "Reentrancy in LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289): External calls: - IERC20(asset).safeTransferFrom(msg.sender,address(this),principalAndInterest_) (contracts/LoanManager.sol#264) Event emitted after the call(s): - LoanRepaid({loanId_:loanId_,principal_:principal_,interest_:interest_}) (contracts/LoanManager.sol#266)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：LoanManager.repayLoan（LoanManager.sol:252-289，第三組事件）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-52",
+      "scan_id": 52,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolAddressesProvider.sol",
+      "lines": [
+        108,
+        121
+      ],
+      "description": "Reentrancy in PoolAddressesProvider.setAddressAsProxy(bytes32,address,bytes) (contracts/PoolAddressesProvider.sol#108-121): External calls: - _updateImpl(id,newImplementationAddress,params) (contracts/PoolAddressesProvider.sol#119) - proxy = new TransparentUpgradeableProxy(newAddress,address(this),params) (contracts/PoolAddressesProvider.sol#172) - Iproxy.upgradeToAndCall(newAddress,params) (contracts/PoolAddressesProvider.sol#177) Event emitted after the call(s): - AddressSetAsProxy(id,proxyAddress,oldImplementationAddress,newImplementationAddress) (contracts/PoolAddressesProvider.sol#120)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：PoolAddressesProvider.setAddressAsProxy（:108-121）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-53",
+      "scan_id": 53,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolAddressesProvider.sol",
+      "lines": [
+        94,
+        105
+      ],
+      "description": "Reentrancy in PoolAddressesProvider.setWithdrawalManagerImpl(address,bytes) (contracts/PoolAddressesProvider.sol#94-105): External calls: - _updateImpl(WITHDRAWAL_MANAGER,newWithdrawalManagerImpl,params) (contracts/PoolAddressesProvider.sol#103) - proxy = new TransparentUpgradeableProxy(newAddress,address(this),params) (contracts/PoolAddressesProvider.sol#172) - Iproxy.upgradeToAndCall(newAddress,params) (contracts/PoolAddressesProvider.sol#177) Event emitted after the call(s): - WithdrawalManagerUpdated(oldWithdrawalManagerImpl,newWithdrawalManagerImpl) (contracts/PoolAddressesProvider.sol#104)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：PoolAddressesProvider.setWithdrawalManagerImpl（:94-105）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-54",
+      "scan_id": 54,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        71,
+        94
+      ],
+      "description": "Reentrancy in Pool.mintWithPermit(uint256,address,uint256,uint256,uint8,bytes32,bytes32) (contracts/Pool.sol#71-94): External calls: - _asset.permit(_msgSender(),address(this),maxAssets_,deadline_,v_,r_,s_) (contracts/Pool.sol#92) - _deposit(_msgSender(),receiver_,assets_,shares_) (contracts/Pool.sol#93) - SafeERC20.safeTransferFrom(_asset,caller,address(this),assets) (contracts/Pool.sol#295) - returndata = address(token).functionCall(data,SafeERC20: low-level call failed) (modules/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#122) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) External calls sending eth: - _deposit(_msgSender(),receiver_,assets_,shares_) (contracts/Pool.sol#93) - (success,returndata) = target.call{value: value}(data) (modules/openzeppelin-contracts/contracts/utils/Address.sol#135) Event emitted after the call(s): - Deposit(caller,receiver,assets,shares) (contracts/Pool.sol#298) - _deposit(_msgSender(),receiver_,assets_,shares_) (contracts/Pool.sol#93) - Transfer(address(0),account,amount) (modules/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol#261) - _deposit(_msgSender(),receiver_,assets_,shares_) (contracts/Pool.sol#93)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：Pool.mintWithPermit（Pool.sol:71-94）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-55",
+      "scan_id": 55,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        235,
+        285
+      ],
+      "description": "Reentrancy in WithdrawalManager.processExit(uint256,address) (contracts/WithdrawalManager.sol#235-285): External calls: - IERC20(_pool()).transfer(owner_,redeemableShares_) (contracts/WithdrawalManager.sol#264) Event emitted after the call(s): - WithdrawalCancelled(account_) (contracts/WithdrawalManager.sol#454) - _emitUpdate(owner_,lockedShares_,exitCycleId_) (contracts/WithdrawalManager.sol#284) - WithdrawalProcessed(account_,sharesToRedeem_,assetsToWithdraw_) (contracts/WithdrawalManager.sol#468) - _emitProcess(owner_,redeemableShares_,resultingAssets_) (contracts/WithdrawalManager.sol#283) - WithdrawalUpdated(account_,lockedShares_,windowStart_.toUint64(),windowEnd_.toUint64()) (contracts/WithdrawalManager.sol#460) - _emitUpdate(owner_,lockedShares_,exitCycleId_) (contracts/WithdrawalManager.sol#284)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：WithdrawalManager.processExit（:235-285）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-56",
+      "scan_id": 56,
+      "source": "tool",
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        213,
+        229
+      ],
+      "description": "Reentrancy in PoolConfigurator.processRedeem(uint256,address,address) (contracts/PoolConfigurator.sol#213-229): External calls: - (redeemableShares_,resultingAssets_) = _withdrawalManager().processExit(shares_,owner_) (contracts/PoolConfigurator.sol#227) Event emitted after the call(s): - RedeemProcessed(owner_,redeemableShares_,resultingAssets_) (contracts/PoolConfigurator.sol#228)",
+      "category": "C",
+      "dev_note": "誤報。reentrancy-events 只指出「事件在外部呼叫之後才發出」，後果限於鏈下索引器可能觀察到亂序事件，不影響任何鏈上狀態或資金。本專案的事件消費者為自有 subgraph，且所有相關函式的狀態變更本身順序正確。本筆位置：PoolConfigurator.processRedeem（:213-229）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-57",
+      "scan_id": 57,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        319,
+        343
+      ],
+      "description": "WithdrawalManager.previewRedeem(address,uint256) (contracts/WithdrawalManager.sol#319-343) uses timestamp for comparisons Dangerous comparisons: - block.timestamp < windowStart_ || block.timestamp >= windowEnd_ (contracts/WithdrawalManager.sol#338)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：WithdrawalManager.previewRedeem（:319-343）的提領視窗判斷。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-58",
+      "scan_id": 58,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        493,
+        511
+      ],
+      "description": "LoanManager._getLateInterest(uint256,uint256,uint256,uint256,uint256) (contracts/LoanManager.sol#493-511) uses timestamp for comparisons Dangerous comparisons: - currentTime_ <= dueDate_ (contracts/LoanManager.sol#504)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：LoanManager._getLateInterest（:493-511）的逾期天數計算。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-59",
+      "scan_id": 59,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        419,
+        455
+      ],
+      "description": "LoanManager.triggerDefault(uint16) (contracts/LoanManager.sol#419-455) uses timestamp for comparisons Dangerous comparisons: - block.timestamp <= _loans[loanId_].dueDate + _loans[loanId_].gracePeriod (contracts/LoanManager.sol#427)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：LoanManager.triggerDefault（:419-455）的寬限期判斷。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-60",
+      "scan_id": 60,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        949,
+        965
+      ],
+      "description": "LoanManager._revertIfInvalidReceivable(uint256,address,address,uint256) (contracts/LoanManager.sol#949-965) uses timestamp for comparisons Dangerous comparisons: - poolConfigurator_.buyer() != buyer_ || ! poolConfigurator_.isSeller(seller_) || repaymentTimestamp_ < block.timestamp (contracts/LoanManager.sol#960-961)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：LoanManager._revertIfInvalidReceivable（:949-965）的到期日必須在未來。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-61",
+      "scan_id": 61,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        252,
+        289
+      ],
+      "description": "LoanManager.repayLoan(uint16) (contracts/LoanManager.sol#252-289) uses timestamp for comparisons Dangerous comparisons: - principal_ != 0 (contracts/LoanManager.sol#272)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：LoanManager.repayLoan（:252-289）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-62",
+      "scan_id": 62,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        292,
+        300
+      ],
+      "description": "WithdrawalManager.isInExitWindow(address) (contracts/WithdrawalManager.sol#292-300) uses timestamp for comparisons Dangerous comparisons: - exitCycleId_ == 0 (contracts/WithdrawalManager.sol#295) - isInExitWindow_ = block.timestamp >= windowStart_ && block.timestamp < windowEnd_ (contracts/WithdrawalManager.sol#299)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：WithdrawalManager.isInExitWindow（:292-300）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-63",
+      "scan_id": 63,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        967,
+        969
+      ],
+      "description": "LoanManager._min(uint256,uint256) (contracts/LoanManager.sol#967-969) uses timestamp for comparisons Dangerous comparisons: - a_ < b_ (contracts/LoanManager.sol#968)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：LoanManager._min（:967-969）—— 此函式為純數值比較，Slither 因呼叫端傳入 block.timestamp 而連帶標記。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-64",
+      "scan_id": 64,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        553,
+        595
+      ],
+      "description": "LoanManager._advanceGlobalPaymentAccounting() (contracts/LoanManager.sol#553-595) uses timestamp for comparisons Dangerous comparisons: - domainEnd_ != 0 && block.timestamp > domainEnd_ (contracts/LoanManager.sol#559) - block.timestamp > domainEnd_ (contracts/LoanManager.sol#566)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：LoanManager._advanceGlobalPaymentAccounting（:553-595）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-65",
+      "scan_id": 65,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        370,
+        378
+      ],
+      "description": "WithdrawalManager.getCurrentConfig() (contracts/WithdrawalManager.sol#370-378) uses timestamp for comparisons Dangerous comparisons: - block.timestamp < cycleConfigs[configId_].initialCycleTime (contracts/WithdrawalManager.sol#373)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：WithdrawalManager.getCurrentConfig（:370-378）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-66",
+      "scan_id": 66,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        724,
+        765
+      ],
+      "description": "LoanManager._handlePaymentAccounting(uint16) (contracts/LoanManager.sol#724-765) uses timestamp for comparisons Dangerous comparisons: - liquidationInfo_.principal != 0 (contracts/LoanManager.sol#740) - block.timestamp > paymentInfo_.dueDate (contracts/LoanManager.sol#752)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：LoanManager._handlePaymentAccounting（:724-765）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-67",
+      "scan_id": 67,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        355,
+        367
+      ],
+      "description": "WithdrawalManager.getConfigAtId(uint256) (contracts/WithdrawalManager.sol#355-367) uses timestamp for comparisons Dangerous comparisons: - cycleId_ < cycleConfigs[configId_].initialCycleId (contracts/WithdrawalManager.sol#362)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：WithdrawalManager.getConfigAtId（:355-367）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-68",
+      "scan_id": 68,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        109,
+        112
+      ],
+      "description": "LoanManager.accruedInterest() (contracts/LoanManager.sol#109-112) uses timestamp for comparisons Dangerous comparisons: - issuanceRate_ == 0 (contracts/LoanManager.sol#111)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：LoanManager.accruedInterest（:109-112）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-69",
+      "scan_id": 69,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        633,
+        665
+      ],
+      "description": "LoanManager._getDefaultInterestAndFees(uint16,Loan_Types.PaymentInfo) (contracts/LoanManager.sol#633-665) uses timestamp for comparisons Dangerous comparisons: - grossLateInterest_ == 0 (contracts/LoanManager.sol#661)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：LoanManager._getDefaultInterestAndFees（:633-665）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-70",
+      "scan_id": 70,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        105,
+        158
+      ],
+      "description": "WithdrawalManager.setExitConfig(uint256,uint256) (contracts/WithdrawalManager.sol#105-158) uses timestamp for comparisons Dangerous comparisons: - i < initialCycleId_ (contracts/WithdrawalManager.sol#133) - initialCycleId_ != cycleConfigs[latestConfigId_].initialCycleId (contracts/WithdrawalManager.sol#140)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：WithdrawalManager.setExitConfig（:105-158）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-71",
+      "scan_id": 71,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        303,
+        316
+      ],
+      "description": "WithdrawalManager.lockedLiquidity() (contracts/WithdrawalManager.sol#303-316) uses timestamp for comparisons Dangerous comparisons: - block.timestamp >= windowStart_ && block.timestamp < windowEnd_ (contracts/WithdrawalManager.sol#308)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：WithdrawalManager.lockedLiquidity（:303-316）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-72",
+      "scan_id": 72,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        235,
+        285
+      ],
+      "description": "WithdrawalManager.processExit(uint256,address) (contracts/WithdrawalManager.sol#235-285) uses timestamp for comparisons Dangerous comparisons: - block.timestamp < windowStart_ || block.timestamp >= windowEnd_ (contracts/WithdrawalManager.sol#257)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：WithdrawalManager.processExit（:235-285）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-73",
+      "scan_id": 73,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        161,
+        188
+      ],
+      "description": "WithdrawalManager.addShares(uint256,address) (contracts/WithdrawalManager.sol#161-188) uses timestamp for comparisons Dangerous comparisons: - lockedShares_ != 0 && block.timestamp < getWindowStart(exitCycleId_) (contracts/WithdrawalManager.sol#165)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：WithdrawalManager.addShares（:161-188）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-74",
+      "scan_id": 74,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        368,
+        416
+      ],
+      "description": "LoanManager.removeLoanImpairment(uint16) (contracts/LoanManager.sol#368-416) uses timestamp for comparisons Dangerous comparisons: - block.timestamp > originalDueDate_ (contracts/LoanManager.sol#405)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：LoanManager.removeLoanImpairment（:368-416）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-75",
+      "scan_id": 75,
+      "source": "tool",
+      "check": "timestamp",
+      "impact": "Low",
+      "severity": "Low",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        191,
+        232
+      ],
+      "description": "WithdrawalManager.removeShares(uint256,address) (contracts/WithdrawalManager.sol#191-232) uses timestamp for comparisons Dangerous comparisons: - block.timestamp < getWindowStart(exitCycleId_) (contracts/WithdrawalManager.sol#203)",
+      "category": "C",
+      "dev_note": "誤報。本專案是天期以「日」計的應收帳款融資協定（實測貸款天期中位數 8.3 天、逾期中位數 20.6 天），礦工可影響的時間戳偏移量（秒級）比任何具經濟意義的門檻小上四個數量級，無法藉此獲利。`block.timestamp` 是本協定利息與週期計算的**指定**時間來源，沒有替代方案。本筆位置：WithdrawalManager.removeShares（:191-232）。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-76",
+      "scan_id": 76,
+      "source": "tool",
+      "check": "assembly",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/libraries/ReentrancyGuard.sol",
+      "lines": [
+        19,
+        23
+      ],
+      "description": "ReentrancyGuardUpgradeable._getReentrancyGuardStorage() (contracts/libraries/ReentrancyGuard.sol#19-23) uses assembly - INLINE ASM (contracts/libraries/ReentrancyGuard.sol#20-22)",
+      "category": "C",
+      "dev_note": "誤報。`libraries/ReentrancyGuard.sol:19-23` 的 assembly 只做 ERC-7201 命名空間 storage 的 slot 定位（`$.slot := ReentrancyGuardStorageLocation`），是 OZ 標準寫法，無任意記憶體操作。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-77",
+      "scan_id": 77,
+      "source": "tool",
+      "check": "assembly",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/libraries/upgradability/VersionedInitializable.sol",
+      "lines": [
+        81,
+        93
+      ],
+      "description": "VersionedInitializable.isConstructor() (contracts/libraries/upgradability/VersionedInitializable.sol#81-93) uses assembly - INLINE ASM (contracts/libraries/upgradability/VersionedInitializable.sol#89-91)",
+      "category": "C",
+      "dev_note": "誤報。`VersionedInitializable.isConstructor()`（:81-93）用 `extcodesize(address())` 判斷是否在建構子中，是 Aave 原始實作的既定寫法。附註：此判斷本身在 EIP-1052 之後對「已部署合約的後續呼叫」仍然正確，不影響本專案的初始化模型。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-78",
+      "scan_id": 78,
+      "source": "tool",
+      "check": "assembly",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/libraries/upgradability/VersionedInitializable.sol",
+      "lines": [
+        95,
+        99
+      ],
+      "description": "VersionedInitializable._getInitializableStorage() (contracts/libraries/upgradability/VersionedInitializable.sol#95-99) uses assembly - INLINE ASM (contracts/libraries/upgradability/VersionedInitializable.sol#96-98)",
+      "category": "C",
+      "dev_note": "誤報。`_getInitializableStorage()`（:95-99）同 ISL-76，ERC-7201 slot 定位。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-79",
+      "scan_id": 79,
+      "source": "tool",
+      "check": "pragma",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/IsleGlobals.sol",
+      "lines": [
+        2,
+        2
+      ],
+      "description": "5 different versions of Solidity are used: - Version constraint 0.8.19 is used by: -0.8.19 (contracts/IsleGlobals.sol#2) -0.8.19 (contracts/LoanManager.sol#2) -0.8.19 (contracts/LoanManagerStorage.sol#2) -0.8.19 (contracts/Pool.sol#2) -0.8.19 (contracts/PoolAddressesProvider.sol#2) -0.8.19 (contracts/PoolConfigurator.sol#2) -0.8.19 (contracts/PoolConfiguratorStorage.sol#2) -0.8.19 (contracts/Receivable.sol#2) -0.8.19 (contracts/ReceivableStorage.sol#2) -0.8.19 (contracts/WithdrawalManager.sol#2) -0.8.19 (contracts/WithdrawalManagerStorage.sol#2) -0.8.19 (contracts/abstracts/Governable.sol#2) -0.8.19 (contracts/interfaces/IGovernable.sol#2) -0.8.19 (contracts/interfaces/IIsleGlobals.sol#2) -0.8.19 (contracts/interfaces/IIsleGlobalsEvents.sol#2) -0.8.19 (contracts/interfaces/ILoanManager.sol#2) -0.8.19 (contracts/interfaces/ILoanManagerEvents.sol#2) -0.8.19 (contracts/interfaces/ILoanManagerStorage.sol#2) -0.8.19 (contracts/interfaces/IPool.sol#2) -0.8.19 (contracts/interfaces/IPoolAddressesProvider.sol#2) -0.8.19 (contracts/interfaces/IPoolConfigurator.sol#2) -0.8.19 (contracts/interfaces/IPoolConfiguratorEvents.sol#2) -0.8.19 (contracts/interfaces/IPoolConfiguratorStorage.sol#2) -0.8.19 (contracts/interfaces/IReceivable.sol#2) -0.8.19 (contracts/interfaces/IReceivableEvent.sol#2) -0.8.19 (contracts/interfaces/IWithdrawalManager.sol#2) -0.8.19 (contracts/interfaces/IWithdrawalManagerStorage.sol#2) -0.8.19 (contracts/libraries/Errors.sol#2) -0.8.19 (contracts/libraries/PoolDeployer.sol#2) -0.8.19 (contracts/libraries/ReentrancyGuard.sol#2) -0.8.19 (contracts/libraries/types/DataTypes.sol#2) -0.8.19 (contracts/libraries/upgradability/UUPSProxy.sol#2) -0.8.19 (contracts/libraries/upgradability/VersionedInitializable.sol#2) - Version constraint ^0.8.0 is used by: -^0.8.0 (modules/openzeppelin-contracts/contracts/interfaces/IERC1967.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/interfaces/IERC4626.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/interfaces/IERC5267.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/interfaces/draft-IERC1822.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/proxy/Proxy.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/utils/Context.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/utils/Counters.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/utils/StorageSlot.sol#5) -^0.8.0 (modules/openzeppelin-contracts/contracts/utils/Strings.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/utils/math/Math.sol#4) -^0.8.0 (modules/openzeppelin-contracts/contracts/utils/math/SafeCast.sol#5) -^0.8.0 (modules/openzeppelin-contracts/contracts/utils/math/SignedMath.sol#4) -^0.8.0 (modules/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol#4) -^0.8.0 (modules/openzeppelin-contracts-upgradeable/contracts/token/ERC721/IERC721ReceiverUpgradeable.sol#4) -^0.8.0 (modules/openzeppelin-contracts-upgradeable/contracts/token/ERC721/IERC721Upgradeable.sol#4) -^0.8.0 (modules/openzeppelin-contracts-upgradeable/contracts/token/ERC721/extensions/ERC721BurnableUpgradeable.sol#4) -^0.8.0 (modules/openzeppelin-contracts-upgradeable/contracts/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol#4) -^0.8.0 (modules/openzeppelin-contracts-upgradeable/contracts/token/ERC721/extensions/IERC721EnumerableUpgradeable.sol#4) -^0.8.0 (modules/openzeppelin-contracts-upgradeable/contracts/token/ERC721/extensions/IERC721MetadataUpgradeable.sol#4) -^0.8.0 (modules/openzeppelin-contracts-upgradeable/contracts/utils/ContextUpgradeable.sol#4) -^0.8.0 (modules/openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol#4) -^0.8.0 (modules/openzeppelin-contracts-upgradeable/contracts/utils/introspection/ERC165Upgradeable.sol#4) -^0.8.0 (modules/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol#4) -^0.8.0 (modules/openzeppelin-contracts-upgradeable/contracts/utils/math/MathUpgradeable.sol#4) -^0.8.0 (modules/openzeppelin-contracts-upgradeable/contracts/utils/math/SignedMathUpgradeable.sol#4) - Version constraint ^0.8.2 is used by: -^0.8.2 (modules/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Upgrade.sol#4) -^0.8.2 (modules/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol#4) - Version constraint ^0.8.1 is used by: -^0.8.1 (modules/openzeppelin-contracts/contracts/utils/Address.sol#4) -^0.8.1 (modules/openzeppelin-contracts-upgradeable/contracts/utils/AddressUpgradeable.sol#4) - Version constraint ^0.8.8 is used by: -^0.8.8 (modules/openzeppelin-contracts/contracts/utils/ShortStrings.sol#4) -^0.8.8 (modules/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol#4)",
+      "category": "B",
+      "dev_note": "屬實但可接受。專案自身 33 個檔案全部固定 `pragma solidity 0.8.19`，版本分歧來自 `modules/` 底下 OZ v4.9.2 的 `^0.8.0` 浮動宣告 —— 那是相依套件的標頭，不在本次交付範圍內，且 `foundry.toml:29` 已用 `solc_version = \"0.8.19\"` 與 `auto_detect_solc = false` 把實際編譯版本鎖死，浮動 pragma 不會生效。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-80",
+      "scan_id": 80,
+      "source": "tool",
+      "check": "dead-code",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/PoolAddressesProvider.sol",
+      "lines": [
+        162,
+        164
+      ],
+      "description": "PoolAddressesProvider._updateImpl(bytes32,address) (contracts/PoolAddressesProvider.sol#162-164) is never used and should be removed",
+      "category": "B",
+      "dev_note": "屬實。`_updateImpl(bytes32,address)` 兩參數版本（PoolAddressesProvider.sol:162-164）確實無人呼叫，全部入口都走三參數版本。它不可從外部觸達（`internal`），無安全影響，但建議刪除以免日後誤用其寫死的 `initialize(address)` 呼叫。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-81",
+      "scan_id": 81,
+      "source": "tool",
+      "check": "dead-code",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/libraries/upgradability/VersionedInitializable.sol",
+      "lines": [
+        101,
+        103
+      ],
+      "description": "VersionedInitializable._getLastInitializedRevision() (contracts/libraries/upgradability/VersionedInitializable.sol#101-103) is never used and should be removed",
+      "category": "B",
+      "dev_note": "屬實。`_getLastInitializedRevision()`（VersionedInitializable.sol:101-103）為 Aave 原始碼保留的 internal getter，本專案未使用。屬上游程式碼，建議保留以降低與上游 diff 的噪音。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-82",
+      "scan_id": 82,
+      "source": "tool",
+      "check": "solc-version",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/IsleGlobals.sol",
+      "lines": [
+        2,
+        2
+      ],
+      "description": "Version constraint 0.8.19 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html) - VerbatimInvalidDeduplication - FullInlinerNonExpressionSplitArgumentEvaluationOrder - MissingSideEffectsOnSelectorAccess. It is used by: - 0.8.19 (contracts/IsleGlobals.sol#2) - 0.8.19 (contracts/LoanManager.sol#2) - 0.8.19 (contracts/LoanManagerStorage.sol#2) - 0.8.19 (contracts/Pool.sol#2) - 0.8.19 (contracts/PoolAddressesProvider.sol#2) - 0.8.19 (contracts/PoolConfigurator.sol#2) - 0.8.19 (contracts/PoolConfiguratorStorage.sol#2) - 0.8.19 (contracts/Receivable.sol#2) - 0.8.19 (contracts/ReceivableStorage.sol#2) - 0.8.19 (contracts/WithdrawalManager.sol#2) - 0.8.19 (contracts/WithdrawalManagerStorage.sol#2) - 0.8.19 (contracts/abstracts/Governable.sol#2) - 0.8.19 (contracts/interfaces/IGovernable.sol#2) - 0.8.19 (contracts/interfaces/IIsleGlobals.sol#2) - 0.8.19 (contracts/interfaces/IIsleGlobalsEvents.sol#2) - 0.8.19 (contracts/interfaces/ILoanManager.sol#2) - 0.8.19 (contracts/interfaces/ILoanManagerEvents.sol#2) - 0.8.19 (contracts/interfaces/ILoanManagerStorage.sol#2) - 0.8.19 (contracts/interfaces/IPool.sol#2) - 0.8.19 (contracts/interfaces/IPoolAddressesProvider.sol#2) - 0.8.19 (contracts/interfaces/IPoolConfigurator.sol#2) - 0.8.19 (contracts/interfaces/IPoolConfiguratorEvents.sol#2) - 0.8.19 (contracts/interfaces/IPoolConfiguratorStorage.sol#2) - 0.8.19 (contracts/interfaces/IReceivable.sol#2) - 0.8.19 (contracts/interfaces/IReceivableEvent.sol#2) - 0.8.19 (contracts/interfaces/IWithdrawalManager.sol#2) - 0.8.19 (contracts/interfaces/IWithdrawalManagerStorage.sol#2) - 0.8.19 (contracts/libraries/Errors.sol#2) - 0.8.19 (contracts/libraries/PoolDeployer.sol#2) - 0.8.19 (contracts/libraries/ReentrancyGuard.sol#2) - 0.8.19 (contracts/libraries/types/DataTypes.sol#2) - 0.8.19 (contracts/libraries/upgradability/UUPSProxy.sol#2) - 0.8.19 (contracts/libraries/upgradability/VersionedInitializable.sol#2)",
+      "category": "B",
+      "dev_note": "屬實但可接受。已逐一比對 Slither 指出的三個 0.8.19 已知問題對本專案是否成立：(a) VerbatimInvalidDeduplication —— 僅影響 Yul `verbatim`，本專案的 assembly 只做 slot 定位，不使用 verbatim；(b) FullInlinerNonExpressionSplitArgumentEvaluationOrder —— 需啟用 full inliner 且函式參數具副作用，本專案 `optimizer_runs = 1_000` 未啟用該路徑，且已檢查無「參數本身有副作用」的呼叫；(c) MissingSideEffectsOnSelectorAccess —— 需對具副作用的運算式取 `.selector`，全專案唯一的 `.selector` 使用是 `IERC721Receiver.onERC721Received.selector`（LoanManager.sol:100），對象是常數介面，無副作用。版本鎖定為部署鏈（Hedera、Plume）相容性考量，不建議在本次變更。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-83",
+      "scan_id": 83,
+      "source": "tool",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/abstracts/Governable.sol",
+      "lines": [
+        64,
+        64
+      ],
+      "description": "Variable Governable.______gap (contracts/abstracts/Governable.sol#64) is not in mixedCase",
+      "category": "C",
+      "dev_note": "純命名/事件索引等風格檢查（naming-convention），不構成安全性問題，由 scan 依 STYLE_ONLY_CHECKS 自動預分類為 C。如認為此筆有安全含義，清空 category 與 auto_classified 後重新判定。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-84",
+      "scan_id": 84,
+      "source": "tool",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/libraries/types/DataTypes.sol",
+      "lines": [
+        5,
+        15
+      ],
+      "description": "Contract PoolConfigurator_Types (contracts/libraries/types/DataTypes.sol#5-15) is not in CapWords",
+      "category": "C",
+      "dev_note": "純命名風格（library 名為 CapWords，Slither 期望 mixedCase）。無安全影響。但要特別記錄：`library PoolConfigurator` 與 `contract PoolConfigurator` 同名，正是導致 Slither 完全無法解析本專案的原因（見報告「掃描範圍」章節的偏離說明）。建議另開 PR 更名為 `PoolConfigurator_Types` 之類，讓靜態分析在 CI 中真正生效。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-85",
+      "scan_id": 85,
+      "source": "tool",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        28,
+        28
+      ],
+      "description": "Variable PoolConfigurator.ADDRESSES_PROVIDER (contracts/PoolConfigurator.sol#28) is not in mixedCase",
+      "category": "C",
+      "dev_note": "純命名/事件索引等風格檢查（naming-convention），不構成安全性問題，由 scan 依 STYLE_ONLY_CHECKS 自動預分類為 C。如認為此筆有安全含義，清空 category 與 auto_classified 後重新判定。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-86",
+      "scan_id": 86,
+      "source": "tool",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/ReceivableStorage.sol",
+      "lines": [
+        19,
+        19
+      ],
+      "description": "Variable ReceivableStorage.__gap (contracts/ReceivableStorage.sol#19) is not in mixedCase",
+      "category": "C",
+      "dev_note": "純命名/事件索引等風格檢查（naming-convention），不構成安全性問題，由 scan 依 STYLE_ONLY_CHECKS 自動預分類為 C。如認為此筆有安全含義，清空 category 與 auto_classified 後重新判定。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-87",
+      "scan_id": 87,
+      "source": "tool",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        26,
+        26
+      ],
+      "description": "Variable WithdrawalManager.ADDRESSES_PROVIDER (contracts/WithdrawalManager.sol#26) is not in mixedCase",
+      "category": "C",
+      "dev_note": "純命名/事件索引等風格檢查（naming-convention），不構成安全性問題，由 scan 依 STYLE_ONLY_CHECKS 自動預分類為 C。如認為此筆有安全含義，清空 category 與 auto_classified 後重新判定。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-88",
+      "scan_id": 88,
+      "source": "tool",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/libraries/ReentrancyGuard.sol",
+      "lines": [
+        25,
+        28
+      ],
+      "description": "Function ReentrancyGuardUpgradeable.__ReentrancyGuard_init() (contracts/libraries/ReentrancyGuard.sol#25-28) is not in mixedCase",
+      "category": "C",
+      "dev_note": "純命名/事件索引等風格檢查（naming-convention），不構成安全性問題，由 scan 依 STYLE_ONLY_CHECKS 自動預分類為 C。如認為此筆有安全含義，清空 category 與 auto_classified 後重新判定。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-89",
+      "scan_id": 89,
+      "source": "tool",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        35,
+        35
+      ],
+      "description": "Variable LoanManager.ADDRESSES_PROVIDER (contracts/LoanManager.sol#35) is not in mixedCase",
+      "category": "C",
+      "dev_note": "純命名/事件索引等風格檢查（naming-convention），不構成安全性問題，由 scan 依 STYLE_ONLY_CHECKS 自動預分類為 C。如認為此筆有安全含義，清空 category 與 auto_classified 後重新判定。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-90",
+      "scan_id": 90,
+      "source": "tool",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/libraries/upgradability/VersionedInitializable.sol",
+      "lines": [
+        110,
+        110
+      ],
+      "description": "Variable VersionedInitializable.______gap (contracts/libraries/upgradability/VersionedInitializable.sol#110) is not in mixedCase",
+      "category": "C",
+      "dev_note": "純命名/事件索引等風格檢查（naming-convention），不構成安全性問題，由 scan 依 STYLE_ONLY_CHECKS 自動預分類為 C。如認為此筆有安全含義，清空 category 與 auto_classified 後重新判定。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-91",
+      "scan_id": 91,
+      "source": "tool",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/libraries/types/DataTypes.sol",
+      "lines": [
+        60,
+        104
+      ],
+      "description": "Contract Loan_Types (contracts/libraries/types/DataTypes.sol#60-104) is not in CapWords",
+      "category": "C",
+      "dev_note": "純命名風格。同 ISL-84：`library Loan` 與 LoanManager 的型別引用構成 Slither 名稱解析衝突的一環。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-92",
+      "scan_id": 92,
+      "source": "tool",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/libraries/types/DataTypes.sol",
+      "lines": [
+        28,
+        57
+      ],
+      "description": "Contract Receivable_Types (contracts/libraries/types/DataTypes.sol#28-57) is not in CapWords",
+      "category": "C",
+      "dev_note": "純命名風格。同 ISL-84：`library Receivable` 與 `contract Receivable` 同名，是 Slither 解析失敗的直接觸發點之一。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-93",
+      "scan_id": 93,
+      "source": "tool",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/libraries/ReentrancyGuard.sol",
+      "lines": [
+        16,
+        17
+      ],
+      "description": "Constant ReentrancyGuardUpgradeable.ReentrancyGuardStorageLocation (contracts/libraries/ReentrancyGuard.sol#16-17) is not in UPPER_CASE_WITH_UNDERSCORES",
+      "category": "C",
+      "dev_note": "純命名/事件索引等風格檢查（naming-convention），不構成安全性問題，由 scan 依 STYLE_ONLY_CHECKS 自動預分類為 C。如認為此筆有安全含義，清空 category 與 auto_classified 後重新判定。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-94",
+      "scan_id": 94,
+      "source": "tool",
+      "check": "redundant-statements",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        190,
+        190
+      ],
+      "description": "Redundant expression \"owner_ (contracts/Pool.sol#190)\" inPool (contracts/Pool.sol#17-372)",
+      "category": "C",
+      "dev_note": "誤報。這是 Solidity 用來抑制「未使用參數」警告的慣用寫法 —— `Pool.withdraw` / `previewWithdraw` / `maxWithdraw` 是刻意不實作的 ERC-4626 介面函式（Pool.sol:177 註解明示 \"Withdraw functions not implemented\"），前兩者直接 revert `Pool_WithdrawalNotImplemented`。本筆位置：Pool.sol:190。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-95",
+      "scan_id": 95,
+      "source": "tool",
+      "check": "redundant-statements",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        232,
+        232
+      ],
+      "description": "Redundant expression \"assets_ (contracts/Pool.sol#232)\" inPool (contracts/Pool.sol#17-372)",
+      "category": "C",
+      "dev_note": "誤報。這是 Solidity 用來抑制「未使用參數」警告的慣用寫法 —— `Pool.withdraw` / `previewWithdraw` / `maxWithdraw` 是刻意不實作的 ERC-4626 介面函式（Pool.sol:177 註解明示 \"Withdraw functions not implemented\"），前兩者直接 revert `Pool_WithdrawalNotImplemented`。本筆位置：Pool.sol:232。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-96",
+      "scan_id": 96,
+      "source": "tool",
+      "check": "redundant-statements",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        191,
+        191
+      ],
+      "description": "Redundant expression \"shares_ (contracts/Pool.sol#191)\" inPool (contracts/Pool.sol#17-372)",
+      "category": "C",
+      "dev_note": "誤報。這是 Solidity 用來抑制「未使用參數」警告的慣用寫法 —— `Pool.withdraw` / `previewWithdraw` / `maxWithdraw` 是刻意不實作的 ERC-4626 介面函式（Pool.sol:177 註解明示 \"Withdraw functions not implemented\"），前兩者直接 revert `Pool_WithdrawalNotImplemented`。本筆位置：Pool.sol:191。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-97",
+      "scan_id": 97,
+      "source": "tool",
+      "check": "redundant-statements",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        220,
+        220
+      ],
+      "description": "Redundant expression \"owner_ (contracts/Pool.sol#220)\" inPool (contracts/Pool.sol#17-372)",
+      "category": "C",
+      "dev_note": "誤報。這是 Solidity 用來抑制「未使用參數」警告的慣用寫法 —— `Pool.withdraw` / `previewWithdraw` / `maxWithdraw` 是刻意不實作的 ERC-4626 介面函式（Pool.sol:177 註解明示 \"Withdraw functions not implemented\"），前兩者直接 revert `Pool_WithdrawalNotImplemented`。本筆位置：Pool.sol:220。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-98",
+      "scan_id": 98,
+      "source": "tool",
+      "check": "redundant-statements",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        188,
+        188
+      ],
+      "description": "Redundant expression \"assets_ (contracts/Pool.sol#188)\" inPool (contracts/Pool.sol#17-372)",
+      "category": "C",
+      "dev_note": "誤報。這是 Solidity 用來抑制「未使用參數」警告的慣用寫法 —— `Pool.withdraw` / `previewWithdraw` / `maxWithdraw` 是刻意不實作的 ERC-4626 介面函式（Pool.sol:177 註解明示 \"Withdraw functions not implemented\"），前兩者直接 revert `Pool_WithdrawalNotImplemented`。本筆位置：Pool.sol:188。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-99",
+      "scan_id": 99,
+      "source": "tool",
+      "check": "redundant-statements",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        189,
+        189
+      ],
+      "description": "Redundant expression \"receiver_ (contracts/Pool.sol#189)\" inPool (contracts/Pool.sol#17-372)",
+      "category": "C",
+      "dev_note": "誤報。這是 Solidity 用來抑制「未使用參數」警告的慣用寫法 —— `Pool.withdraw` / `previewWithdraw` / `maxWithdraw` 是刻意不實作的 ERC-4626 介面函式（Pool.sol:177 註解明示 \"Withdraw functions not implemented\"），前兩者直接 revert `Pool_WithdrawalNotImplemented`。本筆位置：Pool.sol:189。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-100",
+      "scan_id": 100,
+      "source": "tool",
+      "check": "redundant-statements",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        231,
+        231
+      ],
+      "description": "Redundant expression \"shares_ (contracts/Pool.sol#231)\" inPool (contracts/Pool.sol#17-372)",
+      "category": "C",
+      "dev_note": "誤報。這是 Solidity 用來抑制「未使用參數」警告的慣用寫法 —— `Pool.withdraw` / `previewWithdraw` / `maxWithdraw` 是刻意不實作的 ERC-4626 介面函式（Pool.sol:177 註解明示 \"Withdraw functions not implemented\"），前兩者直接 revert `Pool_WithdrawalNotImplemented`。本筆位置：Pool.sol:231。",
+      "remediation": ""
+    },
+    {
+      "id": "ISL-101",
+      "scan_id": 101,
+      "source": "tool",
+      "check": "unindexed-event-address",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/interfaces/IIsleGlobalsEvents.sol",
+      "lines": [
+        7,
+        7
+      ],
+      "description": "Event IIsleGlobalsEvents.Initialized(address) (contracts/interfaces/IIsleGlobalsEvents.sol#7) has address parameters but no indexed parameters",
+      "category": "C",
+      "dev_note": "純命名/事件索引等風格檢查（unindexed-event-address），不構成安全性問題，由 scan 依 STYLE_ONLY_CHECKS 自動預分類為 C。如認為此筆有安全含義，清空 category 與 auto_classified 後重新判定。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-102",
+      "scan_id": 102,
+      "source": "tool",
+      "check": "unindexed-event-address",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/interfaces/IWithdrawalManager.sol",
+      "lines": [
+        18,
+        18
+      ],
+      "description": "Event IWithdrawalManager.Initialized(address,uint256,uint256) (contracts/interfaces/IWithdrawalManager.sol#18) has address parameters but no indexed parameters",
+      "category": "C",
+      "dev_note": "純命名/事件索引等風格檢查（unindexed-event-address），不構成安全性問題，由 scan 依 STYLE_ONLY_CHECKS 自動預分類為 C。如認為此筆有安全含義，清空 category 與 auto_classified 後重新判定。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-103",
+      "scan_id": 103,
+      "source": "tool",
+      "check": "unindexed-event-address",
+      "impact": "Informational",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/interfaces/ILoanManagerEvents.sol",
+      "lines": [
+        8,
+        8
+      ],
+      "description": "Event ILoanManagerEvents.Initialized(address,address) (contracts/interfaces/ILoanManagerEvents.sol#8) has address parameters but no indexed parameters",
+      "category": "C",
+      "dev_note": "純命名/事件索引等風格檢查（unindexed-event-address），不構成安全性問題，由 scan 依 STYLE_ONLY_CHECKS 自動預分類為 C。如認為此筆有安全含義，清空 category 與 auto_classified 後重新判定。",
+      "remediation": "",
+      "auto_classified": "style"
+    },
+    {
+      "id": "ISL-104",
+      "scan_id": 104,
+      "source": "tool",
+      "check": "immutable-states",
+      "impact": "Optimization",
+      "severity": "Informational",
+      "severity_rationale": "",
+      "file": "contracts/Pool.sol",
+      "lines": [
+        20,
+        20
+      ],
+      "description": "Pool.configurator (contracts/Pool.sol#20) should be immutable",
+      "category": "B",
+      "dev_note": "屬實但不修。`Pool.configurator`（Pool.sol:20）確實只在建構子寫入、之後從未變更，改成 `immutable` 可省下每次讀取的 SLOAD。不在本次處理是因為 `configurator` 是 `IPool` 介面的 public getter，改為 immutable 會改變合約的 storage layout；`Pool` 雖非代理合約（每個市場各自 new 一份），但此改動應與其他 Pool 變更一起做並重跑完整測試，不適合夾在審計 PR 中。無安全影響。",
+      "remediation": ""
+    }
+  ],
+  "manual_findings": [
+    {
+      "id": "ISL-105",
+      "title": "利息帳務在「部分逾期」時重複入帳，永久虛增資產淨值",
+      "severity": "High",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        588,
+        594
+      ],
+      "description": "`_advanceGlobalPaymentAccounting()` 的迴圈結束時只寫回 `domainEnd` 與 `issuanceRate`，漏了 `domainStart`。迴圈已用**全額** issuance rate 把「舊 domainStart → 最後處理的到期日」整段記進帳（其中含尚未逾期 payment 的份額），第 593 行的 `accruedInterest()` 又用**縮減後**的 rate 配上**尚未更新**的 `domainStart` 把「舊 domainStart → 現在」整段再記一次，使未逾期 payment 在重疊區間被入帳兩次。每次觸發多記 `未逾期 payment 的 issuanceRate 總和 × (最後處理的到期日 − 上次結算時點)`。多出來的利息進入 `accountedInterest` → `assetsUnderManagement()` → `Pool.totalAssets()` → 份額價格，且無任何沖銷機制（`_compareAndSubtractAccountedInterest` 只防下溢）。",
+      "category": "A",
+      "dev_note": "以 PoC 實測確認：tests/integration/concrete/loan-manager/poc/AccountingBugs.t.sol 的 `test_PoC_Issue1_MixedLate_DoubleCountsInterest` 在兩筆不同到期日的貸款、其中一筆逾期的情境下，正確值 2,301,369,860 對實際值 3,287,671,230，多記 986,301,370（USDC 6 位小數），量級恰等於 `rateB × (dueA − start)` 的公式預測（誤差 2 wei 內）。對照 `test_PoC_Issue1_AllLate_IsUnaffected`：全部逾期時迴圈把 issuanceRate 歸零、`accruedInterest()` 於 :111 短路回傳 0，帳是乾淨的 —— 只有混合狀態出錯，這也是它長期未被發現的原因。上游 Maple fixed-term-loan-manager 在同一位置寫回三個變數，本專案手工移植時漏抄 `domainStart` 這一行。LoanManager.sol:612-617 的註解把這個系統性缺陷誤述為「捨入誤差」，修復時應一併改寫。",
+      "status": "待處理",
+      "scenario": "L9",
+      "remediation": "在 LoanManager.sol:589 之後補上 `domainStart = SafeCast.toUint48(domainStart_);`，並保留第 594 行末尾的 `domainStart = block.timestamp`（負責迴圈未進入的情形）。合約改動之外另需：以 `upgradeToAndCall` 原子升級（見 ISL-114）、在 migration 內以「所有存續 payment 的應計總和」即時重算並沖銷存量差額（不可寫死金額）、發專用事件供索引器下修 `_prevRevenue`。詳見 tests/integration/concrete/loan-manager/poc/README.md 第 5 節。",
+      "source": "manual",
+      "explanation": "`_advanceGlobalPaymentAccounting()`（LoanManager.sol:588-594）負責把「上次結算到現在」的應計利息入帳。迴圈結束時應寫回 `domainStart`、`domainEnd`、`issuanceRate` 三個變數，本專案自 Maple 手工移植時漏抄 `domainStart` 這一行。結果是同一段期間被記兩次：迴圈已用**全額** issuance rate 把「舊 domainStart → 最後處理的到期日」整段入帳（其中含尚未逾期 payment 的份額），第 593 行的 `accruedInterest()` 又用**縮減後**的 rate 配上**尚未更新**的 `domainStart`，把「舊 domainStart → 現在」整段再記一次。重疊區間的未逾期 payment 因此被入帳兩次。",
+      "impact_detail": "每次觸發多記的金額為「未逾期 payment 的 issuanceRate 總和 × (最後處理的到期日 − 上次結算時點)」，且**無任何沖銷機制**（`_compareAndSubtractAccountedInterest` 只防下溢）。虛增的利息進入 `accountedInterest` → `assetsUnderManagement()` → `Pool.totalAssets()` → 份額價格，永久累積。存款人依此價格贖回會拿走不存在的資產，先贖回者的超額由後贖回者承擔；帳面資產淨值與實際可回收債權長期背離。實測本案已累積約 $3,281 無真實債權對應。",
+      "proof_of_concept": "已以測試實證：`tests/integration/concrete/loan-manager/poc/AccountingBugs.t.sol` 的 `test_PoC_Issue1_MixedLate_DoubleCountsInterest`。情境為兩筆不同到期日的貸款、其中一筆逾期，正確值 2,301,369,860 對實際值 3,287,671,230，多記 986,301,370（USDC 6 位小數），量級恰等於 `rateB × (dueA − start)` 的公式預測（誤差 2 wei 內）。對照組 `test_PoC_Issue1_AllLate_IsUnaffected` 顯示全部逾期時迴圈把 issuanceRate 歸零、`accruedInterest()` 於 :111 短路回傳 0，帳是乾淨的 —— 只有混合逾期狀態出錯，這也是它長期未被發現的原因。"
+    },
+    {
+      "id": "ISL-106",
+      "title": "`accruedInterest()` 缺少到期日上限，無交易期間份額價格無界虛增",
+      "severity": "Medium",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        109,
+        112
+      ],
+      "description": "`accruedInterest_ = _getIssuance(issuanceRate, block.timestamp - domainStart)` 直接用 `block.timestamp` 而非 `min(block.timestamp, domainEnd)`。貸款逾期後、下一筆狀態變更交易發生前，這個 view 函式會照原速率無上限線性累加，`assetsUnderManagement()` 與 `Pool.totalAssets()` 跟著虛增，而**申購與贖回都是按這個虛增中的價格成交**。誤差會在下一次 `_advanceGlobalPaymentAccounting()` 被修正，但期間已成交的申贖無法追回。",
+      "category": "A",
+      "dev_note": "以 PoC 實測確認：`test_PoC_Issue2_AccruedInterestGrowsPastDueDate` 顯示到期日當下 986,301,368、60 天後 2,958,904,106（應凍結在前者），425 天後超過三倍以上，並同時斷言 `pool.totalAssets()` 一起被墊高。`test_PoC_Issue2_SelfCorrectsOnNextStateChange` 確認誤差在下一次結算歸零 —— 故為暫時性。上游 Maple 同一函式帶 `_min(block.timestamp, domainEnd)`，移植時被移除。",
+      "status": "待處理",
+      "scenario": "L9",
+      "remediation": "恢復 `min(block.timestamp, domainEnd)` 上限。**必須同時夾 `accrualEnd_ <= domainStart_` 的下界**：修好 ISL-105 後 `domainStart` 會被推進到最後處理的到期日，而 `domainEnd` 在無其他 payment 時被設為 `block.timestamp`，兩者可能相等或倒置；underflow 會讓 `accruedInterest()` revert，而它被 `assetsUnderManagement()` → `Pool.totalAssets()` 呼叫，一旦 revert 整個池子的存提款全數卡死，後果比原缺陷更嚴重。完整 diff 見 poc/README.md 第 5.2 節。",
+      "source": "manual",
+      "explanation": "`accruedInterest()`（LoanManager.sol:109-112）以 `issuanceRate × (block.timestamp − domainStart)` 計算尚未入帳的應計利息。上游 Maple 在同一函式帶有 `_min(block.timestamp, domainEnd)` 上限，移植時被移除，因此時間項不再受到期日封頂：只要沒有任何交易觸發結算，這個值會隨時間無上限成長，即使所有貸款都已到期、不應再產生利息。",
+      "impact_detail": "份額價格在無交易期間持續虛增，且幅度無上界。實測到期日當下為 986,301,368，60 天後為 2,958,904,106（應凍結在前者），425 天後超過三倍以上，`pool.totalAssets()` 一併被墊高。在此期間贖回的存款人以虛高價格取走資產，存入的人則買貴；池子越冷清、偏離越大。誤差會在下一次狀態變更時歸零，故為暫時性而非永久累積 —— 但「暫時」的長度等於下一筆交易的間隔。",
+      "proof_of_concept": "已以測試實證：`test_PoC_Issue2_AccruedInterestGrowsPastDueDate` 斷言上述三個時點的數值與 `pool.totalAssets()` 同步被墊高；`test_PoC_Issue2_SelfCorrectsOnNextStateChange` 確認誤差在下一次結算歸零。重現方式為撥款後不進行任何交易、單純推進區塊時間，再讀 `accruedInterest()`。"
+    },
+    {
+      "id": "ISL-107",
+      "title": "`protocolFee + adminFee` 合計無上限，可使 `fundLoan` 永久 revert",
+      "severity": "Medium",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        770,
+        775
+      ],
+      "description": "`_queuePayment` 取 `feeRate_ = protocolFee_ + adminFee_`（:770）後呼叫 `_getNetInterest(interest_, feeRate_)`，其實作為 `interest_ * (HUNDRED_PERCENT - feeRate_) / HUNDRED_PERCENT`（:680）。兩個費率的 setter 都沒有任何上下限：`IsleGlobals.setProtocolFee(uint24)`（IsleGlobals.sol:90，onlyGovernor）與 `PoolConfigurator.setAdminFee(uint24)`（PoolConfigurator.sol:144，onlyAdminOrGovernor）。`uint24` 上限 16,777,215 相對於 `HUNDRED_PERCENT = 1e6` 等於 1677%。任一方（或兩方合計）超過 100% 時，`HUNDRED_PERCENT - feeRate_` 在 0.8.19 下溢 revert，`fundLoan` 全面失效直到費率被調回。",
+      "category": "A",
+      "dev_note": "DataTypes.sol:9 的註解「uint24 adminFee; max = 1.6e7 (1600%)」顯示開發者已意識到型別容許超過 100%，但未加檢查。已確認既有 payment 不受影響（`payments[].protocolFee/adminFee` 在建立時快照，而超過 100% 的組合根本無法建立成功），故不影響還款路徑，只癱瘓新撥款。此問題與 postmortem 第 6.2 節第 6 點所述一致。",
+      "status": "待處理",
+      "scenario": "L11",
+      "remediation": "在兩個 setter 加上界檢查，且必須檢查**合計**：`setAdminFee` 內驗證 `adminFee_ + globals.protocolFee() <= HUNDRED_PERCENT`，`setProtocolFee` 內同理；或在 `_queuePayment` 以 `_min(feeRate_, HUNDRED_PERCENT)` 兜底。建議兩者都做，並把合理上限（例如 50%）寫成常數。",
+      "source": "manual",
+      "explanation": "`_queuePayment`（LoanManager.sol:770-775）取 `feeRate_ = protocolFee_ + adminFee_` 後呼叫 `_getNetInterest(interest_, feeRate_)`，其實作為 `interest_ * (HUNDRED_PERCENT - feeRate_) / HUNDRED_PERCENT`（:680）。兩個費率的 setter —— `IsleGlobals.setProtocolFee`（IsleGlobals.sol:90，onlyGovernor）與 `PoolConfigurator.setAdminFee`（PoolConfigurator.sol:144，onlyAdminOrGovernor）—— 都沒有任何上下界檢查。`uint24` 上限 16,777,215 相對於 `HUNDRED_PERCENT = 1e6` 等於 1677%，DataTypes.sol:9 的註解「uint24 adminFee; max = 1.6e7 (1600%)」顯示開發者已意識到型別容許超過 100%，但未加檢查。",
+      "impact_detail": "任一方或兩方合計超過 100% 時，`HUNDRED_PERCENT - feeRate_` 在 Solidity 0.8.19 下溢 revert，`fundLoan` 全面失效直到費率被調回。既有 payment 不受影響（費率在建立時快照，超過 100% 的組合根本無法建立成功），故不影響還款路徑，但新撥款完全癱瘓：借款人無法取得資金，池內閒置流動性無法產生收益，且在費率被察覺並調回之前無法自行恢復。",
+      "proof_of_concept": "不需要攻擊者，由設定失誤觸發：governor 呼叫 `setProtocolFee(600000)`（60%）、pool admin 呼叫 `setAdminFee(500000)`（50%），兩者各自看似合理，合計 110% 超過上限。隨後任一筆 `fundLoan` 進入 `_queuePayment` 即 revert。此問題與 postmortem 第 6.2 節第 6 點所述一致。"
+    },
+    {
+      "id": "ISL-108",
+      "title": "`maxCoverLiquidation` 無上限，可使 `triggerDefault` 永久 revert",
+      "severity": "Medium",
+      "file": "contracts/PoolConfigurator.sol",
+      "lines": [
+        382,
+        392
+      ],
+      "description": "`_handleCover` 計算 `availableCover_ = poolCover * _config.maxCoverLiquidation / HUNDRED_PERCENT`（:383），取 `coverAmount_ = _min(availableCover_, losses_)`（:385）後執行 `poolCover -= coverAmount_`（:387）。`setMaxCoverLiquidation(uint24)`（:154，onlyGovernor）不檢查上限，設成大於 `HUNDRED_PERCENT` 時 `availableCover_ > poolCover`；只要該筆違約損失也大於 `poolCover`，`coverAmount_` 就會超過 `poolCover`，扣減時 underflow revert → `triggerDefault` 卡死，池子無法認列違約、無法動用 cover。",
+      "category": "A",
+      "dev_note": "逐行確認觸發條件為 `maxCoverLiquidation > 1e6` 且 `losses_ > poolCover`；後者在無擔保信貸池是常態（postmortem 記載 53 筆已還款中 52 筆逾期）。由 governor 誤設觸發，非外部可控，但後果是違約流程整體不可用，且發生時正是最需要它的時刻。",
+      "status": "待處理",
+      "scenario": "L11",
+      "remediation": "在 `setMaxCoverLiquidation` 加 `if (maxCoverLiquidation_ > HUNDRED_PERCENT) revert ...`；並在 `_handleCover` 以 `_min(availableCover_, poolCover)` 兜底。",
+      "source": "manual",
+      "explanation": "`_handleCover`（PoolConfigurator.sol:382-392）計算可動用的第一損失準備 `availableCover_ = poolCover * _config.maxCoverLiquidation / HUNDRED_PERCENT`。`setMaxCoverLiquidation` 沒有上限檢查，該值可被設為超過 100%，使 `availableCover_` 大於實際持有的 `poolCover`；後續扣減時下溢 revert。",
+      "impact_detail": "`triggerDefault` 整體不可用 —— 違約無法認列，損失無法從準備金吸收，逾期部位持續掛在帳上並繼續以原 issuance rate 計息，進一步扭曲資產淨值。觸發條件為 `maxCoverLiquidation > 1e6` 且 `losses_ > poolCover`，後者在無擔保信貸池是常態（postmortem 記載 53 筆已還款中 52 筆逾期）。失效發生的時機正是最需要違約流程的時候。",
+      "proof_of_concept": "不需要攻擊者，由設定失誤觸發：governor 或 pool admin 呼叫 `setMaxCoverLiquidation` 傳入大於 `HUNDRED_PERCENT`（1e6）的值，例如誤把 100% 寫成 `100`×`1e6`。隨後任一筆損失大於 `poolCover` 的貸款呼叫 `triggerDefault`，即在 `_handleCover` 下溢 revert。"
+    },
+    {
+      "id": "ISL-109",
+      "title": "`Receivable.createReceivable` 完全無存取控制",
+      "severity": "Medium",
+      "file": "contracts/Receivable.sol",
+      "lines": [
+        59,
+        76
+      ],
+      "description": "`createReceivable`（:59）為 `external` 且無任何 modifier，任何地址都能鑄造一張 buyer / seller / faceAmount / repaymentTimestamp 全部自填的應收帳款 NFT，並 `_safeMint` 到自己指定的 `params_.seller` 錢包（:72）。`Receivable.Info.isValid` 一律寫死 `true`（:69），合約端無任何真實性驗證。",
+      "category": "A",
+      "dev_note": "已逐行確認**放款路徑本身沒有被打穿**：`LoanManager.requestLoan` 要求 `msg.sender == receivableInfo_.buyer`（:194、:943-947），且 `_revertIfInvalidReceivable`（:949-965）另外驗證 `poolConfigurator_.buyer() == buyer_` 與 `isSeller(seller_)`，撥款還需 `onlyPoolAdmin`。因此攻擊者無法自助取得貸款。實際影響有三：(a) 任何人可把 NFT 塞進任意賣方錢包，污染以此 NFT 為準的鏈下對帳；(b) `_tokenIdCounter` 可被無成本灌大；(c) 這是 D-RWA-01（鏈下事實無法被合約驗證）在本專案最直接的體現 —— 「一張應收帳款存在」這個宣稱在鏈上不需要任何憑據。",
+      "status": "待處理",
+      "scenario": "L2",
+      "remediation": "把 `createReceivable` 限制為白名單角色（governor、pool admin，或 `isSeller` 名單），或改為需要買方簽章授權。長期建議引入 attestation 機制讓外部可驗證憑證對應真實發票。",
+      "source": "manual",
+      "explanation": "`Receivable.createReceivable`（Receivable.sol:59-76）鑄造代表一張應收帳款的 ERC-721 憑證，函式上沒有任何 modifier —— 任何地址都可以指定買方、賣方、面額與到期日鑄出一張憑證。合約層面沒有任何機制驗證這張憑證背後真的存在一筆應收帳款。",
+      "impact_detail": "放款路徑本身沒有被打穿（見 PoC），因此不會直接失血。實際影響有三：(a) 任何人可把憑證塞進任意賣方錢包，污染以此 NFT 為準的鏈下對帳與報表；(b) `_tokenIdCounter` 可被無成本灌大；(c) 這是「鏈下事實無法被合約驗證」在本專案最直接的體現 —— 「一張應收帳款存在」這個宣稱在鏈上不需要任何憑據，而整個放款決策建立在這個宣稱之上。",
+      "proof_of_concept": "任意地址直接呼叫 `createReceivable(buyer, seller, faceAmount, repaymentTimestamp, currencyCode)` 即鑄出憑證，無需任何權限。攻擊者無法據此自助取得貸款：已逐行確認 `LoanManager.requestLoan` 要求 `msg.sender == receivableInfo_.buyer`（:194、:943-947），`_revertIfInvalidReceivable`（:949-965）另外驗證 `poolConfigurator_.buyer() == buyer_` 與 `isSeller(seller_)`，撥款還需 `onlyPoolAdmin`。故可利用面限於上述三項污染效果。"
+    },
+    {
+      "id": "ISL-110",
+      "title": "借款人自訂的 `gracePeriod` 無上限，可使 `triggerDefault` 永久無法觸發",
+      "severity": "Medium",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        173,
+        228
+      ],
+      "description": "`requestLoan` 由買方（借款人）呼叫，`gracePeriod_`、`rates_[0]`（利率）與 `rates_[1]`（逾期加成）全部是呼叫者自填的參數（:176-178），合約不設任何上下限，直接寫進 `_loans[loanId_]`（:211-225）。而 `gracePeriod` 又被用在 `triggerDefault` 的前置檢查：`if (block.timestamp <= _loans[loanId_].dueDate + _loans[loanId_].gracePeriod) revert`（:427）。借款人填入極大值（或使該加法溢位的值）即可讓違約流程**永久無法執行** —— 極大值使條件恆真而 revert，溢位值則直接算術 revert，兩條路都讓出借方失去違約工具。",
+      "category": "A",
+      "dev_note": "已確認唯一的把關是 `fundLoan` 的 `onlyPoolAdmin` 人工審核；但 pool admin 在核准時看到的是一份參數清單，`gracePeriod = 2^255` 這種值不必然會被注意到，而鏈上沒有任何自動阻擋。此模式為本次領域調查新歸納的 D-CREDIT-02（借款人自訂參數被用於保護出借方的檢查），詳見 audit/DOMAIN_RESEARCH.md 第 3 節。",
+      "status": "待處理",
+      "scenario": "L11",
+      "remediation": "在 `requestLoan` 對 `gracePeriod_` 設合理上限（例如 90 days），對 `rates_` 兩個元素設上下限；或改為由 pool admin 在 `fundLoan` 時指定這三個參數，讓借款人只能提出申請、不能決定保護條款。",
+      "source": "manual",
+      "explanation": "`requestLoan`（LoanManager.sol:173-228）由借款人自行提交貸款參數，其中包含 `gracePeriod`（寬限期）。這個參數的用途是保護出借方 —— `triggerDefault` 必須等到期日加上寬限期之後才能觸發。由借款人決定一個用來限制出借方何時能宣告其違約的參數，方向本身就是反的，而合約對其上限沒有任何檢查。",
+      "impact_detail": "借款人提交一個極大的 `gracePeriod`（例如 `2^255`），該筆貸款即永遠無法被觸發違約：本金無法透過違約流程回收，第一損失準備無法動用，該部位永久掛在 `principalOut` 上並持續計息，使資產淨值長期虛增。存款人面對的是一筆帳面存在、實質永遠無法處置的債權。",
+      "proof_of_concept": "借款人呼叫 `requestLoan` 時傳入極大的 `gracePeriod_`，等待 pool admin 於 `fundLoan` 核准撥款。已確認唯一的把關是 `fundLoan` 的 `onlyPoolAdmin` 人工審核，而 pool admin 在核准時看到的是一份參數清單，`gracePeriod = 2^255` 這種值不必然會被注意到，鏈上沒有任何自動阻擋。此模式對應本次領域調查歸納的 D-CREDIT-02（借款人自訂參數被用於保護出借方的檢查），詳見 audit/DOMAIN_RESEARCH.md 第 3 節。"
+    },
+    {
+      "id": "ISL-111",
+      "title": "同一張應收帳款可支撐多筆貸款，合約無「已使用」標記",
+      "severity": "Low",
+      "file": "contracts/LoanManager.sol",
+      "lines": [
+        173,
+        249
+      ],
+      "description": "`requestLoan` 只讀取 `getReceivableInfoById`（:190-191），不檢查該 `receivablesTokenId_` 是否已被其他貸款引用，也不在 receivable 上留下任何消耗標記。同一個買方可用同一張 NFT 重複申請，pool admin 若重複撥款，`requestFunds` 會把兩筆本金都從 pool 轉出並計入 `principalOut`。",
+      "category": "A",
+      "dev_note": "已確認損失被第二道機制部分擋住：`withdrawFunds` 要求 `safeTransferFrom(msg.sender, address(this), tokenId)`（:303），第一筆提領後 NFT 已易主，第二筆無法提領，資金會滯留在 LoanManager。因此不是直接盜取，而是「資金離開 pool、計入 principalOut、但無對應可提領債權」的帳務失真，且需要 pool admin 重複撥款才會發生 → 評為 Low。",
+      "status": "待處理",
+      "scenario": "L2",
+      "remediation": "在 `requestLoan` 檢查該 tokenId 是否已有未結清的貸款（新增 `mapping(address => mapping(uint256 => uint16)) activeLoanOfReceivable`），或要求申請時即把 NFT 托管給 LoanManager。",
+      "source": "manual",
+      "explanation": "`requestLoan`／`fundLoan`（LoanManager.sol:173-249）沒有記錄某張應收帳款憑證是否已經被用來支撐一筆尚未結清的貸款，也沒有在申請時把 NFT 托管起來。同一個 tokenId 因此可以重複提出貸款申請。",
+      "impact_detail": "第二筆貸款撥款後，資金已離開 pool 並計入 `principalOut`，但沒有對應的可提領債權 —— 帳務失真而非直接盜取。已確認損失被第二道機制部分擋住：`withdrawFunds` 要求 `safeTransferFrom(msg.sender, address(this), tokenId)`（:303），第一筆提領後 NFT 已易主，第二筆無法提領，資金會滯留在 LoanManager 而非落入攻擊者手中。且需要 pool admin 對同一張憑證重複撥款才會發生，故評為 Low。",
+      "proof_of_concept": "以同一個 receivable tokenId 呼叫兩次 `requestLoan`，取得兩個 loanId；pool admin 對兩者皆執行 `fundLoan`。第一筆 `withdrawFunds` 成功並取走 NFT，第二筆 `withdrawFunds` 因 NFT 已不在借款人手上而 revert，該筆資金滯留於 LoanManager，`principalOut` 卻已計入。"
+    },
+    {
+      "id": "ISL-112",
+      "title": "`setExitConfig` 的 `cycleDuration` 無上限，pool admin 可實質凍結全部贖回",
+      "severity": "Medium",
+      "file": "contracts/WithdrawalManager.sol",
+      "lines": [
+        105,
+        158
+      ],
+      "description": "`setExitConfig`（:105，onlyAdminOrGovernor）只驗證 `windowDuration_ != 0`（:114）與 `windowDuration_ <= cycleDuration_`（:118），`cycleDuration_` 本身為 `uint64` 且無上限。pool admin 可把週期設成數十年；新設定在三個 cycle 後生效（:125），之後所有 `getCurrentCycleId()` 與 `getWindowAtId()` 都依新週期計算，既有與後續的提領請求都會被推到極遠的未來，而系統沒有任何緊急贖回或治理否決的繞道。",
+      "category": "A",
+      "dev_note": "逐行確認無其他路徑可取回資產：`Pool.withdraw` 直接 revert `Pool_WithdrawalNotImplemented`（:193），`redeem` 必經 `maxRedeem` → `isInExitWindow`（PoolConfigurator.sol:310-315）。`removeShares` 可取回 pool share，但那只是換回份額憑證、不是換回底層資產。此模式為本次領域調查新歸納的 D-CREDIT-03，詳見 audit/DOMAIN_RESEARCH.md 第 3 節。",
+      "status": "待處理",
+      "scenario": "L11",
+      "remediation": "對 `cycleDuration_` 設上限（例如 90 days）與下限；並考慮加入「設定變更不得延後既有 pending 請求的既定視窗」的保護。",
+      "source": "manual",
+      "explanation": "`setExitConfig`（WithdrawalManager.sol:105-158）設定贖回的週期長度 `cycleDuration`，贖回必須落在對應週期的視窗內才能執行。這個參數沒有上限檢查，pool admin 可將其設為極大值，使下一個贖回視窗落在極遠的未來。",
+      "impact_detail": "全體存款人的贖回被實質凍結，且無其他路徑取回底層資產 —— 已逐行確認 `Pool.withdraw` 直接 revert `Pool_WithdrawalNotImplemented`（:193），`redeem` 必經 `maxRedeem` → `isInExitWindow`（PoolConfigurator.sol:310-315）；`removeShares` 只能取回 pool share 憑證，換不回底層資產。此為單一角色即可執行的資金凍結。",
+      "proof_of_concept": "pool admin 呼叫 `setExitConfig` 傳入極大的 `cycleDuration_`（例如 `type(uint64).max`）。既有與新增的贖回請求其視窗起點被推至極遠未來，所有 `redeem` 因 `isInExitWindow` 為假而 revert。此模式對應本次領域調查歸納的 D-CREDIT-03，詳見 audit/DOMAIN_RESEARCH.md 第 3 節。"
+    },
+    {
+      "id": "ISL-113",
+      "title": "升級與位址改寫權限集中於單一 governor 位址，合約層無多簽或 timelock 要求",
+      "severity": "Medium",
+      "file": "contracts/PoolAddressesProvider.sol",
+      "lines": [
+        145,
+        179
+      ],
+      "description": "`Governable` 只維護單一 `address governor`（Governable.sol:15），兩段式移轉但無 timelock、無門檻、無第二人核准。該位址可：(a) `setAddress(LOAN_MANAGER, x)`（PoolAddressesProvider.sol:145）把 loan manager 換成任意地址 —— 由於 `Pool` 建構子已對 `PoolConfigurator` 授權 `type(uint256).max`（Pool.sol:36），而 `requestFunds` 只檢查 `msg.sender == loanManager_`（PoolConfigurator.sol:175），該地址即可一次提走 pool 全部流動性；(b) `setLoanManagerImpl` / `setPoolConfiguratorImpl` / `setWithdrawalManagerImpl` / `setAddressAsProxy` 替換任一核心 implementation；(c) `setIsleGlobals` 連同 governor 自身一起換掉；(d) 升級 IsleGlobals 與 Receivable（UUPS）。",
+      "category": "B",
+      "dev_note": "此為 audit/DOMAIN_RESEARCH.md 的 D-RWA-02（來源：rwa.md，last_reviewed 2026-08-12），該條記載 2025 年 RWA 領域最大宗事故即為單一 deployer 私鑰被取得後呼叫 `upgradeToAndCall` 替換 implementation，損失約 850 萬美元。本專案的存取控制**實作正確**（已逐一確認 `onlyGovernor` 的比較對象與 `IsleGlobals.governor()` 一致，無 tx.origin、無恆真條件），問題在於權力邊界本身。列為 B 而非 A，因為這是明確的產品設計選擇而非程式缺陷 —— 但緩解措施屬於部署與營運層，必須在鏈下落實並向存款人揭露。",
+      "status": "已確認接受風險（緩解措施待鏈下落實）",
+      "source": "manual",
+      "explanation": "`Governable` 只維護單一 `address governor`（Governable.sol:15），採兩段式移轉但無 timelock、無門檻、無第二人核准。該單一位址可執行：(a) `setAddress(LOAN_MANAGER, x)`（PoolAddressesProvider.sol:145）把 loan manager 換成任意地址；(b) `setLoanManagerImpl` / `setPoolConfiguratorImpl` / `setWithdrawalManagerImpl` / `setAddressAsProxy` 替換任一核心 implementation；(c) `setIsleGlobals` 連同 governor 自身一起換掉；(d) 升級 IsleGlobals 與 Receivable（UUPS）。存取控制的**實作是正確的** —— 已逐一確認 `onlyGovernor` 的比較對象與 `IsleGlobals.governor()` 一致，無 tx.origin、無恆真條件；問題在於權力邊界本身。",
+      "impact_detail": "單一私鑰即等同池內全部資金的控制權。以 (a) 為例：`Pool` 建構子已對 `PoolConfigurator` 授權 `type(uint256).max`（Pool.sol:36），而 `requestFunds` 只檢查 `msg.sender == loanManager_`（PoolConfigurator.sol:175），因此把 loan manager 指向攻擊者控制的地址後，即可一次提走 pool 全部流動性。合約層沒有任何延遲或第二人核准可供存款人察覺並退出。",
+      "proof_of_concept": "取得 governor 私鑰後，單筆交易呼叫 `PoolAddressesProvider.setAddress(LOAN_MANAGER, attacker)`，接著以該地址呼叫 `PoolConfigurator.requestFunds(pool.totalAssets())` 即提走全部流動性。這正是 audit/DOMAIN_RESEARCH.md 的 D-RWA-02（來源：rwa.md，last_reviewed 2026-08-12）所記載的模式：2025 年 RWA 領域最大宗事故即為單一 deployer 私鑰被取得後呼叫 `upgradeToAndCall` 替換 implementation，損失約 850 萬美元。",
+      "remediation": "短期（營運層，不需改合約）：將 governor 位址移轉至多簽錢包（建議 3-of-5 以上，簽署人分散於不同組織與金鑰保管方式），並把此安排連同簽署人組成向存款人公開揭露。長期（合約層）：在 `Governable` 加入 timelock —— 特權操作分為提案與執行兩段，中間留足夠的公告期讓存款人有時間退出；並對 `setAddress(LOAN_MANAGER, ...)` 這類可直接導致資金外流的操作設定較長的延遲。"
+    },
+    {
+      "id": "ISL-114",
+      "title": "升級的原子性完全依賴呼叫者傳入正確的 `params`，否則 `initialize` 對任何人開放",
+      "severity": "Medium",
+      "file": "contracts/libraries/upgradability/VersionedInitializable.sol",
+      "lines": [
+        37,
+        60
+      ],
+      "description": "`VersionedInitializable.initializer` 的放行條件是 `revision > lastInitializedRevision`（:45），屬 revision 制而非一次性 flag。`PoolAddressesProvider._updateImpl` 雖然呼叫 `upgradeToAndCall(newAddress, params)`（:177），但 `params` 是 `setXxxImpl` 的呼叫者自帶參數，**合約不驗證它非空、也不驗證它確實是一個 initializer 呼叫**。若 governor 以空 `params` 執行一次會提高 revision 的升級，proxy 會停在「implementation 已換、initialize 尚未執行」的狀態，此時任何人都能搶先呼叫 `initialize` —— 而三份合約的 `initialize` 都沒有呼叫者檢查：`LoanManager.initialize(address asset_)`（LoanManager.sol:53）可寫入任意 `asset`；`PoolConfigurator.initialize`（:76）與 `WithdrawalManager.initialize`（:67）只比對 `provider_` 是否等於 immutable 的 `ADDRESSES_PROVIDER`，而那是攻擊者可以照填的公開值。",
+      "category": "A",
+      "dev_note": "已確認**目前尚未可利用**：三份合約的 revision 皆為 `0x1`，代理上的 `lastInitializedRevision` 已是 1，`revision > lastInitializedRevision` 為假，再次呼叫 `initialize` 會 revert。風險在下一次升級 —— 而 postmortem 第 6.1 節第 2 點規劃的 ISL-105/106 修復正是一次 revision 升到 2 的升級，屆時此窗口會真實存在。這是「修復缺陷的那次操作本身帶著新風險」的典型情況，必須在修復前先處理。",
+      "status": "待處理",
+      "scenario": "L7",
+      "remediation": "在三份合約的 `initialize` 加入呼叫者檢查（`msg.sender == address(ADDRESSES_PROVIDER)` 或 proxy admin），使搶跑不可行；並在 `setXxxImpl` 系列函式要求 `params.length != 0`，把「必須原子升級」從營運紀律變成合約強制。",
+      "source": "manual",
+      "explanation": "`VersionedInitializable`（libraries/upgradability/VersionedInitializable.sol:37-60）以 `revision > lastInitializedRevision` 作為 `initialize` 的守門條件，函式本身不檢查呼叫者。升級的原子性完全依賴呼叫者在 `setXxxImpl` 傳入正確的 `params` —— 若傳入空的 `params`，implementation 被換上但 `initialize` 未被呼叫，該函式在新 revision 下對任何人開放。",
+      "impact_detail": "在升級與初始化之間的區塊窗口內，任何人可搶先呼叫 `initialize` 並填入自己選定的參數，取得該合約的控制權。目前**尚未可利用**：三份合約的 revision 皆為 `0x1`，代理上的 `lastInitializedRevision` 已是 1，條件為假，再次呼叫會 revert。風險在下一次升級 —— 而 postmortem 第 6.1 節第 2 點規劃的 ISL-105/106 修復正是一次 revision 升到 2 的升級，屆時此窗口會真實存在。這是「修復缺陷的那次操作本身帶著新風險」的典型情況，必須在執行該修復之前先處理。",
+      "proof_of_concept": "條件：下一次升級時 `setXxxImpl` 以空的 `params` 呼叫（或以非原子方式先換 implementation 再另發交易 initialize）。攻擊者監看 mempool，於 implementation 更換的交易之後、初始化交易之前，自行呼叫該代理的 `initialize` 並傳入自選參數，即以新 revision 完成初始化並取得控制權。"
+    },
+    {
+      "id": "ISL-115",
+      "title": "無儲備證明機制：流通份額對應的債權無法被外部獨立驗證",
+      "severity": "Informational",
+      "file": "contracts/Receivable.sol",
+      "lines": [
+        59,
+        92
+      ],
+      "description": "系統的資產淨值 `_totalAssets() = pool 餘額 + assetsUnderManagement()`（PoolConfigurator.sol:344），其中 `assetsUnderManagement()` 完全由鏈上記帳推導（`principalOut + accountedInterest + accruedInterest()`）。但這些數字對應的**債權是否真實存在**，鏈上沒有任何驗證或證明機制：`Receivable.Info.isValid` 建立時寫死 `true`、`createReceivable` 無權限（ISL-109）、無 attestation 函式、無鏈下儲備報告串接點、無稽核時點事件。",
+      "category": "B",
+      "dev_note": "對照 audit/DOMAIN_RESEARCH.md 的 D-RWA-05（來源：rwa.md）四個標準查證問題，四項皆為否。本次 postmortem 正是這個缺口的實證：`accountedInterest` 累積了 $3,281 沒有任何真實債權對應，而系統本身沒有任何機制會發現 —— 是靠人工重放鏈上事件、與獨立重算的應計總和比對才查出來的。列為 Informational 是因為這是機制缺失而非可被直接利用的漏洞，但它決定了「下一次帳對不上時要多久才會現形」。",
+      "status": "待處理（建議納入產品路線圖）",
+      "source": "manual",
+      "explanation": "系統沒有任何機制可讓外部獨立驗證「流通份額所對應的債權真實存在且金額正確」。`Receivable` 的憑證可由任何人鑄造（見 ISL-109），應計利息由合約自行累加而無對照來源，資產淨值的正確性完全依賴合約內部帳務自身正確。對照 audit/DOMAIN_RESEARCH.md 的 D-RWA-05（來源：rwa.md）四個標準查證問題，四項皆為否。",
+      "impact_detail": "帳務一旦出錯，系統本身不會發現，也沒有任何外部方能在不取得內部資料的情況下察覺。本次 postmortem 正是這個缺口的實證：`accountedInterest` 累積了 $3,281 沒有任何真實債權對應，是靠人工重放鏈上事件、與獨立重算的應計總和比對才查出來的。此缺口決定的不是「會不會出錯」，而是「下一次帳對不上時要多久才會現形」。",
+      "proof_of_concept": "非可被主動利用的漏洞，而是機制缺失。其存在已由本次事件實證：ISL-105 造成的重複入帳在鏈上持續累積且被計入份額價格，期間沒有任何合約層機制、事件或對外介面會揭露帳實不符；發現途徑是人工重放事件並獨立重算應計總和。",
+      "remediation": "短期：對外發布可獨立驗證的儲備報告 —— 定期公布全部存續 payment 的清單與應計總和，讓外部可用鏈上事件自行重算並與 `assetsUnderManagement()` 比對。中期：在合約層加入不變量檢查，例如於結算路徑斷言 `accountedInterest` 不超過所有存續 payment 的理論上限，違反時發出事件而非靜默累積。長期：引入 attestation 機制，使 `Receivable` 憑證對應的真實發票可被第三方背書驗證（與 ISL-109 的長期建議同一方向）。"
+    }
+  ],
+  "scenario_coverage": {
+    "contracts": [
+      {
+        "file": "contracts/LoanManager.sol",
+        "checked": [
+          "L1",
+          "L2",
+          "L3",
+          "L7",
+          "L8",
+          "L9",
+          "L11",
+          "L12",
+          "L13",
+          "L14"
+        ],
+        "not_applicable": [
+          "L4",
+          "L5",
+          "L6",
+          "L10",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19"
+        ],
+        "hits": [
+          "ISL-105",
+          "ISL-106",
+          "ISL-107",
+          "ISL-110",
+          "ISL-111",
+          "ISL-02"
+        ]
+      },
+      {
+        "file": "contracts/PoolConfigurator.sol",
+        "checked": [
+          "L1",
+          "L2",
+          "L3",
+          "L7",
+          "L8",
+          "L9",
+          "L11",
+          "L12",
+          "L13",
+          "L14"
+        ],
+        "not_applicable": [
+          "L4",
+          "L5",
+          "L6",
+          "L10",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19"
+        ],
+        "hits": [
+          "ISL-108",
+          "ISL-05"
+        ]
+      },
+      {
+        "file": "contracts/Pool.sol",
+        "checked": [
+          "L1",
+          "L2",
+          "L3",
+          "L6",
+          "L7",
+          "L8",
+          "L9",
+          "L10",
+          "L11",
+          "L13"
+        ],
+        "not_applicable": [
+          "L4",
+          "L5",
+          "L12",
+          "L14",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19"
+        ],
+        "hits": []
+      },
+      {
+        "file": "contracts/WithdrawalManager.sol",
+        "checked": [
+          "L1",
+          "L2",
+          "L3",
+          "L7",
+          "L8",
+          "L9",
+          "L11",
+          "L13"
+        ],
+        "not_applicable": [
+          "L4",
+          "L5",
+          "L6",
+          "L10",
+          "L12",
+          "L14",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19"
+        ],
+        "hits": [
+          "ISL-112"
+        ]
+      },
+      {
+        "file": "contracts/Receivable.sol",
+        "checked": [
+          "L1",
+          "L2",
+          "L3",
+          "L7",
+          "L8",
+          "L12",
+          "L13"
+        ],
+        "not_applicable": [
+          "L4",
+          "L5",
+          "L6",
+          "L9",
+          "L10",
+          "L11",
+          "L14",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19"
+        ],
+        "hits": [
+          "ISL-109",
+          "ISL-115"
+        ]
+      },
+      {
+        "file": "contracts/IsleGlobals.sol",
+        "checked": [
+          "L1",
+          "L2",
+          "L3",
+          "L7",
+          "L11",
+          "L13",
+          "L14"
+        ],
+        "not_applicable": [
+          "L4",
+          "L5",
+          "L6",
+          "L8",
+          "L9",
+          "L10",
+          "L12",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19"
+        ],
+        "hits": [
+          "ISL-107"
+        ]
+      },
+      {
+        "file": "contracts/PoolAddressesProvider.sol",
+        "checked": [
+          "L1",
+          "L2",
+          "L3",
+          "L7",
+          "L13",
+          "L14"
+        ],
+        "not_applicable": [
+          "L4",
+          "L5",
+          "L6",
+          "L8",
+          "L9",
+          "L10",
+          "L11",
+          "L12",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19"
+        ],
+        "hits": [
+          "ISL-113",
+          "ISL-114"
+        ]
+      },
+      {
+        "file": "contracts/abstracts/Governable.sol",
+        "checked": [
+          "L1",
+          "L2",
+          "L3",
+          "L7",
+          "L13"
+        ],
+        "not_applicable": [
+          "L4",
+          "L5",
+          "L6",
+          "L8",
+          "L9",
+          "L10",
+          "L11",
+          "L12",
+          "L14",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19"
+        ],
+        "hits": [
+          "ISL-113"
+        ]
+      },
+      {
+        "file": "contracts/libraries/upgradability/VersionedInitializable.sol",
+        "checked": [
+          "L1",
+          "L2",
+          "L3",
+          "L7"
+        ],
+        "not_applicable": [
+          "L4",
+          "L5",
+          "L6",
+          "L8",
+          "L9",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19"
+        ],
+        "hits": [
+          "ISL-114"
+        ]
+      },
+      {
+        "file": "contracts/libraries/ReentrancyGuard.sol",
+        "checked": [
+          "L1",
+          "L2",
+          "L3",
+          "L7",
+          "L9"
+        ],
+        "not_applicable": [
+          "L4",
+          "L5",
+          "L6",
+          "L8",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19"
+        ],
+        "hits": []
+      },
+      {
+        "file": "contracts/libraries/PoolDeployer.sol",
+        "checked": [
+          "L2",
+          "L7"
+        ],
+        "not_applicable": [
+          "L1",
+          "L3",
+          "L4",
+          "L5",
+          "L6",
+          "L8",
+          "L9",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19"
+        ],
+        "hits": []
+      },
+      {
+        "file": "contracts/libraries/upgradability/UUPSProxy.sol",
+        "checked": [
+          "L2",
+          "L7"
+        ],
+        "not_applicable": [
+          "L1",
+          "L3",
+          "L4",
+          "L5",
+          "L6",
+          "L8",
+          "L9",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19"
+        ],
+        "hits": []
+      }
+    ]
+  },
+  "scope_exclusion_reasons": {}
+}

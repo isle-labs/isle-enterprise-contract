@@ -1,0 +1,177 @@
+{
+  "src_prefix": [
+    "contracts/"
+  ],
+  "exclude_paths": [],
+  "files": [
+    {
+      "path": "contracts/IsleGlobals.sol",
+      "lines": 125,
+      "sha256": "3987b303f8f62cd4848bb4a6bf2bad8a090fd51cbb0e12b0370e157d087da756"
+    },
+    {
+      "path": "contracts/LoanManager.sol",
+      "lines": 970,
+      "sha256": "3b5220d68d3590065fd092f055a48092a4bd5d3096a32e695667e17c25637694"
+    },
+    {
+      "path": "contracts/LoanManagerStorage.sol",
+      "lines": 27,
+      "sha256": "03f8c6932a04722f273a440df1fc7f8229053f3ed6f65fd5bfd8f290e2ad6e20"
+    },
+    {
+      "path": "contracts/Pool.sol",
+      "lines": 372,
+      "sha256": "3ebb28118848e0b390ebe88568795a9fc4e0cb88c0c958695a692680664a5d97"
+    },
+    {
+      "path": "contracts/PoolAddressesProvider.sol",
+      "lines": 204,
+      "sha256": "fcb12e5f417360315c0efde4768b00a8a7c0e4052fb78e0ad6030b477e7fc055"
+    },
+    {
+      "path": "contracts/PoolConfigurator.sol",
+      "lines": 415,
+      "sha256": "72c5c0db996978e18d8cb4e0ea477bbdc288930beac5a6211a602240709bc9b1"
+    },
+    {
+      "path": "contracts/PoolConfiguratorStorage.sol",
+      "lines": 21,
+      "sha256": "a06ef12092ffde999b82bd7063be4a4292eb4b55f0607aa767ca9840cc1b6a55"
+    },
+    {
+      "path": "contracts/Receivable.sol",
+      "lines": 119,
+      "sha256": "3326392b70ffe4b8916b94d538a26c2be3b8fdf954e0468e04abbb127010c914"
+    },
+    {
+      "path": "contracts/ReceivableStorage.sol",
+      "lines": 20,
+      "sha256": "80005aceeaae4aa704ff712cfc7ad92c1fdc02ca47716f25c8bf46831a1c127a"
+    },
+    {
+      "path": "contracts/WithdrawalManager.sol",
+      "lines": 483,
+      "sha256": "6e549041783fbb4adc01e47987e634ad4d19e25211298683f6a508d1d6dcd48a"
+    },
+    {
+      "path": "contracts/WithdrawalManagerStorage.sol",
+      "lines": 15,
+      "sha256": "5dd442b2a98144446e91cdcc04951c32bd56792c3e5cd91c0b7d09df16038bd3"
+    },
+    {
+      "path": "contracts/abstracts/Governable.sol",
+      "lines": 65,
+      "sha256": "c23132fae93d3293dc45cfef0bc5c7b214d130a7457c33ad628208fb47ef7f3f"
+    },
+    {
+      "path": "contracts/interfaces/IGovernable.sol",
+      "lines": 55,
+      "sha256": "15e42654c06eba75b5fd08c150e91fbfc93e3141da950cf8b827acaaca60a6bc"
+    },
+    {
+      "path": "contracts/interfaces/IIsleGlobals.sol",
+      "lines": 118,
+      "sha256": "3c18df7a4840be63b81d4ba30f50be6a3e6b3b65e6b943bc723dc43309ea7080"
+    },
+    {
+      "path": "contracts/interfaces/IIsleGlobalsEvents.sol",
+      "lines": 52,
+      "sha256": "b839a4dd2428e859daadf3189d61bbb7824ed3587de3930b9b6fd15d32dcf3e4"
+    },
+    {
+      "path": "contracts/interfaces/ILoanManager.sol",
+      "lines": 115,
+      "sha256": "1b77aa8718d9a7f29bc75daa23519898df2cfe42ccf0369aef713be816ed95fe"
+    },
+    {
+      "path": "contracts/interfaces/ILoanManagerEvents.sol",
+      "lines": 87,
+      "sha256": "fd61b350a2b3237d3b4c57c711cda24b2a12ca680bd4960e3e9ab367918814a0"
+    },
+    {
+      "path": "contracts/interfaces/ILoanManagerStorage.sol",
+      "lines": 49,
+      "sha256": "62f152636716b1f29bf056d50e99fe4366d1100a65b2203be25947d0e734acc6"
+    },
+    {
+      "path": "contracts/interfaces/IPool.sol",
+      "lines": 92,
+      "sha256": "80df7b35418623f35460a31d87ebc3c5555cafc0799a05be4fd23e821ebab5f1"
+    },
+    {
+      "path": "contracts/interfaces/IPoolAddressesProvider.sol",
+      "lines": 121,
+      "sha256": "c16f2a9a3fe1db98bca4801d0b89d8e38358c8e7c63d2e869453237b2d1cae04"
+    },
+    {
+      "path": "contracts/interfaces/IPoolConfigurator.sol",
+      "lines": 172,
+      "sha256": "96da95b1e7aced3884198db2251b68e7b7cb77816bc2dc3e0e884ad2845ab9f7"
+    },
+    {
+      "path": "contracts/interfaces/IPoolConfiguratorEvents.sol",
+      "lines": 77,
+      "sha256": "4174280c1d83cdacdf042889fffef2fd033edc611e8afae0249b6ba7999e6aaf"
+    },
+    {
+      "path": "contracts/interfaces/IPoolConfiguratorStorage.sol",
+      "lines": 34,
+      "sha256": "c1e231d1db62fb9e9a3e037a3abadde839e4bf09289c8161c1fb1bff055a0558"
+    },
+    {
+      "path": "contracts/interfaces/IReceivable.sol",
+      "lines": 37,
+      "sha256": "30b8d71441367a4d4ffe4bf72163832048148f94c58900f5870d1e753d96ca16"
+    },
+    {
+      "path": "contracts/interfaces/IReceivableEvent.sol",
+      "lines": 27,
+      "sha256": "4c5af0d433d5182fb9e6022f3ae1cb36f5c6198cc9f004df1b421baa5abcd10c"
+    },
+    {
+      "path": "contracts/interfaces/IWithdrawalManager.sol",
+      "lines": 165,
+      "sha256": "f02b4aea6e70accb978e52e7dfb517677f8ae61a3056a09db046a1ff56fcd3d2"
+    },
+    {
+      "path": "contracts/interfaces/IWithdrawalManagerStorage.sol",
+      "lines": 23,
+      "sha256": "4feb91d731a3524d37715be4db469a45895a7d8919aaaeb5ad3f80cd2da091c4"
+    },
+    {
+      "path": "contracts/libraries/Errors.sol",
+      "lines": 198,
+      "sha256": "fdc920a2a5ea9dbc0f7320e33c8cdecb7c786803028ed76b83ef6ee1eb2f2151"
+    },
+    {
+      "path": "contracts/libraries/PoolDeployer.sol",
+      "lines": 21,
+      "sha256": "ecff7ef85239a5ee36c8da5d3e8be4d8f572d1f2ef7ba8a0ae8218b36e742588"
+    },
+    {
+      "path": "contracts/libraries/ReentrancyGuard.sol",
+      "lines": 40,
+      "sha256": "c2fc2d7b7d40a86c119a054c373f3ce1d97d2c2ccffc34a9e495e1219cb5ed99"
+    },
+    {
+      "path": "contracts/libraries/types/DataTypes.sol",
+      "lines": 104,
+      "sha256": "03219ee7db03442b5935445e3fb166ab67f792d1fa9914cc33532900e1fef67b"
+    },
+    {
+      "path": "contracts/libraries/upgradability/UUPSProxy.sol",
+      "lines": 8,
+      "sha256": "080abfe3e2d23e9c5447d5dea5dc0f7be5775603482a15526138571630af6679"
+    },
+    {
+      "path": "contracts/libraries/upgradability/VersionedInitializable.sol",
+      "lines": 111,
+      "sha256": "5c4636c308adb1c0b0f4abcc0888471976a53f8f8dacf294a8640c945a805631"
+    }
+  ],
+  "totals": {
+    "files": 33,
+    "lines": 4542
+  }
+}
