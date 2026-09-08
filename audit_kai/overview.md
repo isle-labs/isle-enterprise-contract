@@ -3,7 +3,7 @@
 Isle v1 是應收帳款融資協定：買方（borrower）以短天期應收帳款憑證向資金池借款，存款人（lender）
 提供資金賺取利息。程式碼衍生自 Maple v2，為逐檔手工改寫而非 fork。
 
-本次檢測範圍為 `contracts/` 目錄下 33 個 Solidity 檔案、共 4,542 行，不含 `modules/` 底下的
+本次檢測範圍為 `contracts/` 目錄下 33 個 Solidity 檔案、共 4,557 行，不含 `modules/` 底下的
 相依套件（OpenZeppelin v4.9.2、forge-std、prb-math）。
 
 核心合約分工：
