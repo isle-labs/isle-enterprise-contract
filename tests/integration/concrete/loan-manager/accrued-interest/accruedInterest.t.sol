@@ -27,11 +27,15 @@ contract AccruedInterest_LoanManager_Integration_Concrete_Test is
 
         assertEq(loanManager.accruedInterest(), accruedInterest);
 
-        // matured
-        vm.warp(defaults.MAY_31_2023() + 70 days);
-        accruedInterest = defaults.NEW_RATE_ZERO_FEE_RATE() * 100 days / 1e27;
+        // matured: accrual stops at the due date, so the value is the full 30-day term and stays there no
+        // matter how late the payment runs. Interest for the overdue period is booked on repayment instead.
+        uint256 atDueDate = defaults.NEW_RATE_ZERO_FEE_RATE() * 30 days / 1e27;
 
-        assertEq(loanManager.accruedInterest(), accruedInterest);
+        vm.warp(defaults.MAY_31_2023() + 70 days);
+        assertEq(loanManager.accruedInterest(), atDueDate);
+
+        vm.warp(defaults.MAY_31_2023() + 425 days);
+        assertEq(loanManager.accruedInterest(), atDueDate);
     }
 
     function test_AccruedInterest() external whenLoanFunded whenAccountingUpdated {

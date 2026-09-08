@@ -28,7 +28,9 @@ contract UpdateAccounting_LoanManager_Integration_Concrete_Test is
         fundDefaultLoan();
         vm.warp(defaults.MAY_31_2023() + 70 days);
 
-        assertEq(loanManager.accruedInterest(), defaults.NEW_RATE_ZERO_FEE_RATE() * 100 days / 1e27);
+        // Accrual is capped at the due date, so the unsettled view already reads the final 30-day term:
+        // it matches `accountedInterest` after settlement below rather than running ahead of it.
+        assertEq(loanManager.accruedInterest(), defaults.NEW_RATE_ZERO_FEE_RATE() * 30 days / 1e27);
         loanManager.updateAccounting();
 
         assertEq(loanManager.accruedInterest(), 0);

@@ -7,10 +7,17 @@ import { Receivable as RCV } from "contracts/libraries/types/DataTypes.sol";
 
 import { LoanManager_Integration_Concrete_Test } from "../LoanManager.t.sol";
 
-/// @dev Proof-of-concept for the two accounting bugs described in POSTMORTEM-LOANMANAGER-ACCOUNTING.md.
-///      These tests assert the *current, buggy* behaviour so they pass on `main`; each one also states
-///      the ground truth it violates. After the fix they must be inverted.
-contract AccountingBugs_PoC_Test is LoanManager_Integration_Concrete_Test {
+/// @dev Regression guard for the two interest accounting defects described in
+///      POSTMORTEM-LOANMANAGER-ACCOUNTING.md and reproduced by the PoC in PR #89.
+///
+///      These tests started life asserting the *buggy* behaviour so they would pass on the unfixed code.
+///      They now assert the ground truth, so a regression in either fix turns them red:
+///
+///        - issue 1: `_advanceGlobalPaymentAccounting` must write `domainStart` back before settling the
+///          remainder, or payments that are still accruing get booked twice over the interval just covered.
+///        - issue 2: `accruedInterest()` must cap the accrual at `domainEnd`, or the share price inflates
+///          without bound whenever no transaction settles the pool.
+contract AccountingBugs_Regression_Test is LoanManager_Integration_Concrete_Test {
     uint256 internal constant PRECISION = 1e27;
 
     function setUp() public virtual override {
@@ -45,12 +52,13 @@ contract AccountingBugs_PoC_Test is LoanManager_Integration_Concrete_Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-        ISSUE 1 — missing `domainStart` write-back (LoanManager.sol:593)
+          ISSUE 1 — `domainStart` write-back (LoanManager.sol:599-605)
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Mixed state: loan A is past due, loan B is not. One `updateAccounting()` call permanently
-    ///      over-states `accountedInterest` by `issuanceRate_after * (dueDateA - old domainStart)`.
-    function test_PoC_Issue1_MixedLate_DoubleCountsInterest() external {
+    /// @dev Mixed state: loan A is past due, loan B is not. The interval `[domainStart, dueA]` is covered by
+    ///      the retroactive loop; the remainder `[dueA, now]` is settled by `accruedInterest()`. Each interval
+    ///      must be booked exactly once. Before the fix, B was booked twice over `[domainStart, dueA]`.
+    function test_MixedLate_AccountsInterestExactlyOnce() external {
         uint256 start_ = MAY_1_2023;
         uint256 dueA_ = start_ + 30 days;
         uint256 dueB_ = start_ + 60 days;
@@ -72,33 +80,28 @@ contract AccountingBugs_PoC_Test is LoanManager_Integration_Concrete_Test {
 
         // Ground truth: A stops accruing at its due date, B accrues to now.
         uint256 truth_ = rateA_ * (dueA_ - start_) / PRECISION + rateB_ * (now_ - start_) / PRECISION;
-
-        // Actual: the retroactive loop accounts [start, dueA] at the FULL rate (correct), then :593
-        // adds `accruedInterest()` computed with the *stale* domainStart and the *new* issuanceRate,
-        // re-accounting B over [start, dueA] a second time.
         uint256 actual_ = loanManager.accountedInterest();
-        uint256 overCount_ = rateB_ * (dueA_ - start_) / PRECISION;
 
         console2.log("ground truth accountedInterest :", truth_);
         console2.log("actual   accountedInterest     :", actual_);
-        console2.log("over-counted                   :", actual_ - truth_);
 
-        assertAlmostEq(actual_, truth_ + overCount_, 2, "double count magnitude");
-        assertGt(actual_, truth_, "accountedInterest is inflated");
+        assertAlmostEq(actual_, truth_, 2, "interest booked exactly once");
 
-        // The inflation is permanent: it now sits in storage and flows into the share price.
+        // The amount that used to be double counted, kept here so a regression is legible rather than a bare
+        // off-by-some failure: it is B's rate applied a second time over the interval the loop already covered.
+        uint256 formerOverCount_ = rateB_ * (dueA_ - start_) / PRECISION;
+        assertLt(actual_, truth_ + formerOverCount_ / 2, "no trace of the old double count");
+
+        // Settlement is complete and nothing leaked into the share price.
         assertEq(loanManager.accruedInterest(), 0, "accrual is settled");
         assertAlmostEq(
-            loanManager.assetsUnderManagement(),
-            loanManager.principalOut() + truth_ + overCount_,
-            2,
-            "AUM inflated by the same amount"
+            loanManager.assetsUnderManagement(), loanManager.principalOut() + truth_, 2, "AUM matches ground truth"
         );
     }
 
-    /// @dev Boundary case from the report: when *every* payment is late the loop drives issuanceRate
-    ///      to 0, `accruedInterest()` short-circuits at :111, and nothing is double counted.
-    function test_PoC_Issue1_AllLate_IsUnaffected() external {
+    /// @dev Boundary case: when *every* payment is late the loop drives issuanceRate to 0 and `accruedInterest()`
+    ///      short-circuits. This was already correct before the fix, and must stay correct after it.
+    function test_AllLate_AccountsInterestExactlyOnce() external {
         uint256 start_ = MAY_1_2023;
         uint256 dueA_ = start_ + 30 days;
         uint256 dueB_ = start_ + 60 days;
@@ -120,44 +123,42 @@ contract AccountingBugs_PoC_Test is LoanManager_Integration_Concrete_Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-           ISSUE 2 — `accruedInterest()` has no due-date cap (:111)
+          ISSUE 2 — due-date cap in `accruedInterest()` (:109-123)
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Between transactions, a past-due loan keeps accruing linearly and without bound.
-    function test_PoC_Issue2_AccruedInterestGrowsPastDueDate() external {
+    /// @dev Between transactions, accrual must freeze at the due date. Before the fix it grew linearly and
+    ///      without bound, inflating `pool.totalAssets()` for however long the pool stayed quiet.
+    function test_AccruedInterestFreezesAtDueDate() external {
         uint256 start_ = MAY_1_2023;
         uint256 due_ = start_ + 30 days;
 
         _fundLoanDueAt(due_);
-        uint256 rate_ = loanManager.issuanceRate();
 
         vm.warp(due_);
         uint256 atDueDate_ = loanManager.accruedInterest();
         uint256 aumAtDueDate_ = loanManager.assetsUnderManagement();
+        uint256 totalAssetsAtDueDate_ = pool.totalAssets();
 
-        // Nobody repays, nobody touches the contract. Ground truth: accrual is frozen at the due date.
+        assertGt(atDueDate_, 0, "interest did accrue over the term");
+
+        // Nobody repays, nobody touches the contract. The quoted value must not move.
         vm.warp(due_ + 60 days);
-        uint256 sixtyDaysLate_ = loanManager.accruedInterest();
+        assertEq(loanManager.accruedInterest(), atDueDate_, "frozen 60 days late");
+
+        vm.warp(due_ + 425 days);
+        assertEq(loanManager.accruedInterest(), atDueDate_, "still frozen 425 days late");
 
         console2.log("accruedInterest at due date    :", atDueDate_);
-        console2.log("accruedInterest 60 days later  :", sixtyDaysLate_);
+        console2.log("accruedInterest 425 days later :", loanManager.accruedInterest());
 
-        assertAlmostEq(sixtyDaysLate_, atDueDate_ + rate_ * 60 days / PRECISION, 2, "kept accruing past domainEnd");
-        assertGt(sixtyDaysLate_, atDueDate_, "should have been capped at domainEnd");
-
-        // Unbounded: another year of nobody calling the contract triples it again.
-        vm.warp(due_ + 425 days);
-        assertGt(loanManager.accruedInterest(), sixtyDaysLate_ * 3, "no upper bound");
-
-        // The inflation reaches the share price through the pool.
-        vm.warp(due_ + 60 days);
-        assertGt(loanManager.assetsUnderManagement(), aumAtDueDate_, "AUM inflated");
-        assertGt(pool.totalAssets(), aumAtDueDate_, "pool totalAssets inflated");
+        // And the share price the pool quotes stays put with it.
+        assertEq(loanManager.assetsUnderManagement(), aumAtDueDate_, "AUM not inflated");
+        assertEq(pool.totalAssets(), totalAssetsAtDueDate_, "pool totalAssets not inflated");
     }
 
-    /// @dev The window closes on the next state-changing call: any of the six entry points into
-    ///      `_advanceGlobalPaymentAccounting()` realigns the domain and the error term returns to 0.
-    function test_PoC_Issue2_SelfCorrectsOnNextStateChange() external {
+    /// @dev The domain realigns on the next state-changing call. Unchanged by the fix, kept as a guard on the
+    ///      invariant the cap depends on: after settlement there is no unaccounted remainder.
+    function test_DomainRealignsOnNextStateChange() external {
         uint256 start_ = MAY_1_2023;
         _fundLoanDueAt(start_ + 30 days);
         _fundLoanDueAt(start_ + 60 days);
@@ -167,9 +168,43 @@ contract AccountingBugs_PoC_Test is LoanManager_Integration_Concrete_Test {
 
         loanManager.updateAccounting();
 
-        assertGt(before_, 0, "error term was non-zero");
-        assertEq(loanManager.accruedInterest(), 0, "error term back to 0");
+        assertGt(before_, 0, "there was a remainder to settle");
+        assertEq(loanManager.accruedInterest(), 0, "remainder settled");
         assertEq(loanManager.domainStart(), start_ + 40 days, "domain realigned");
         assertGt(loanManager.domainEnd(), block.timestamp, "domainEnd back in the future");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    THE FIX MUST NOT BRICK THE POOL
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev `accruedInterest()` is reached from `Pool.totalAssets()`, so if the due-date cap ever underflowed
+    ///      it would revert every deposit and redemption — worse than the defect it replaced. The clamp on
+    ///      `accrualEnd_ <= domainStart_` is what prevents that. Drive the domain through the states that put
+    ///      `domainStart` at or past the accrual end and assert the pool keeps quoting and keeps trading.
+    function test_TotalAssetsSurvivesDomainCollapse() external {
+        uint256 start_ = MAY_1_2023;
+
+        _fundLoanDueAt(start_ + 30 days);
+        _fundLoanDueAt(start_ + 60 days);
+
+        // Settle repeatedly at points that push `domainStart` up to the last processed due date while
+        // `domainEnd` is pulled back to `block.timestamp` once the list drains.
+        uint256[5] memory offsets_ = [uint256(40 days), 60 days, 61 days, 200 days, 900 days];
+
+        for (uint256 i_; i_ < offsets_.length; ++i_) {
+            vm.warp(start_ + offsets_[i_]);
+
+            // Both must be callable, not just non-reverting in isolation.
+            loanManager.accruedInterest();
+            uint256 totalAssets_ = pool.totalAssets();
+            assertGt(totalAssets_, 0, "pool still quotes a price");
+
+            loanManager.updateAccounting();
+
+            assertEq(loanManager.accruedInterest(), 0, "settled with no remainder");
+            assertGte(loanManager.domainEnd(), loanManager.domainStart(), "domain never inverts after settlement");
+            assertGt(pool.totalAssets(), 0, "pool still quotes a price after settlement");
+        }
     }
 }
