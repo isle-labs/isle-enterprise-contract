@@ -16,7 +16,7 @@ contract RepayLoan is BuyerActor {
         uint16 loanId = uint16(promptUint("Loan id"));
 
         // Approves and transfers the pool asset, an HTS token on Hedera. No-op on the other chains.
-        HtsSimulation.emulate();
+        HtsSimulation.emulate(ILoanManager(market.LoanManager).asset());
 
         _repay(market.LoanManager, market.PoolConfigurator, loanId);
     }

@@ -17,7 +17,7 @@ contract WithdrawFunds is SellerActor {
         address destination = promptAddress("Funds destination address");
 
         // Transfers the pool asset to the seller, an HTS token on Hedera. No-op on the other chains.
-        HtsSimulation.emulate();
+        HtsSimulation.emulate(ILoanManager(market.LoanManager).asset());
 
         _withdraw(market.LoanManager, uint16(loanId), destination);
     }

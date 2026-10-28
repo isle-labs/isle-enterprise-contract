@@ -13,7 +13,7 @@ contract FundLoan is PoolAdminActor {
         uint256 loanId = promptUint("Loan id");
 
         // Disburses the pool asset, which is an HTS token on Hedera. No-op on the other chains.
-        HtsSimulation.emulate();
+        HtsSimulation.emulate(ILoanManager(market.LoanManager).asset());
 
         _fund(market.LoanManager, uint16(loanId));
     }

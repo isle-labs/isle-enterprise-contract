@@ -15,7 +15,7 @@ contract DepositCover is PoolAdminActor {
         uint256 amount = promptUint("Cover amount (raw uint)");
 
         // Moves the pool asset, which is an HTS token on Hedera. No-op on the other chains.
-        HtsSimulation.emulate();
+        HtsSimulation.emulate(IPoolConfigurator(market.PoolConfigurator).asset());
 
         _depositCover(market.PoolConfigurator, amount);
     }

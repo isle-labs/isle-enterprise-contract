@@ -21,11 +21,24 @@ import { IHRC719 } from "contracts/interfaces/IHRC719.sol";
 library HtsSimulation {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    /// @notice Installs the HTS emulator. Enough for any script whose accounts already exist on-chain.
-    function emulate() internal {
+    /// @dev HIP-719 redirect proxy, split around the 20-byte token address it embeds. Same bytecode as
+    ///      hedera-forking's `HtsSystemContractJson._HIP719TemplateBytecode`.
+    bytes private constant HIP719_PROXY_HEAD = hex"6080604052348015600f57600080fd5b506000610167905077618dc65e";
+    bytes private constant HIP719_PROXY_TAIL =
+        hex"600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033";
+
+    /// @notice Installs the HTS emulator and routes `asset_` through it. Enough for any script whose
+    ///         accounts already exist on-chain.
+    /// @dev Hedera's JSON-RPC now serves an HTS token's code as an EIP-7702 delegation designator
+    ///      (`0xef0100` ++ `0x167`) rather than the HIP-719 proxy. Forge follows the designator and runs
+    ///      the emulator directly in the token's context with a bare ERC-20 selector, which the emulator
+    ///      rejects ("fallback: unsupported selector"). Etching the HIP-719 proxy back onto the token
+    ///      restores the `redirectForToken` route the emulator expects. Local execution only.
+    function emulate(address asset_) internal {
         if (!Hts.isHedera()) return;
 
         Hsc.htsSetup();
+        vm.etch(asset_, abi.encodePacked(HIP719_PROXY_HEAD, asset_, HIP719_PROXY_TAIL));
     }
 
     /// @notice {emulate}, plus a stub for associating contracts this run is about to create.
@@ -40,7 +53,7 @@ library HtsSimulation {
     function setup(address asset_) internal {
         if (!Hts.isHedera()) return;
 
-        Hsc.htsSetup();
+        emulate(asset_);
         vm.mockCall(asset_, abi.encodeWithSelector(IHRC719.associate.selector), abi.encode(Hts.SUCCESS));
     }
 }

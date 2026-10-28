@@ -33,7 +33,7 @@ contract AssociateAsset is BaseScript {
         require(Hts.isHedera(), "AssociateAsset: only meaningful on Hedera");
 
         // The account already exists on-chain, so the emulator can resolve it; no associate stub needed.
-        HtsSimulation.emulate();
+        HtsSimulation.emulate(asset);
 
         vm.startBroadcast(account);
         IHRC719(asset).associate();
