@@ -18,6 +18,14 @@ PoolConfigurator = "0x8C42faFDa347bbFA699A31aDB8858ad2EC4b9Ae2"
 WithdrawalManager = "0xBcA3BA4B760B922f455d9fee91807100f8E0A63f"
 name = "chipright"
 
+[[hedera.markets]]
+LoanManager = "0xf4a721DBe2148C74F57B49476FCE4e3d32087362"
+Pool = "0x9bC4681019410B72cf06Cdf58D574DEa1668826A"
+PoolAddressesProvider = "0xd44E220c3Fc1E67e3841Ed93E4aF9EdDa945C28a"
+PoolConfigurator = "0x8aD7593c56795227943cE8F8fd4c3e1c5F6FF5F0"
+WithdrawalManager = "0x7DadE6a3178B2503648c4603AD3549fFB0FD0e07"
+name = "Storq"
+
 [hedera-testnet]
 IsleGlobals = "0xC098f530389208788Cc93f2D7728cC5cEEd61429"
 Receivable = "0x43B7f614b3669c797D9E567392024baA15213Fce"
@@ -37,6 +45,14 @@ PoolAddressesProvider = "0xDF8E94d3921825d9cda2668762001E75Dd3B2179"
 PoolConfigurator = "0x2698A3DC2220fbd452f6Fc88672Cc1A864bbd156"
 WithdrawalManager = "0x9d5e44a4789e48127D076f7dfED1653480F4A681"
 name = "T02"
+
+[[hedera-testnet.markets]]
+LoanManager = "0x80da24C4f75Bfb5D71709a6cCD46748A828Df020"
+Pool = "0xC0B307A7AcE66f76d0EdCC4a07004b59D6C854E0"
+PoolAddressesProvider = "0x4195e06Ad17030FA7cF3338439b2564304248666"
+PoolConfigurator = "0x9d652679B78753D7DBfF2EF15E1434cC5b734B1A"
+WithdrawalManager = "0xBcE8Abb557B27f37173392d0f374f12814Cb1f72"
+name = "S01"
 
 [plume-testnet]
 IsleGlobals = "0xe6C915f8e68f8Ef8e2Aef11C8c140500e7615c2b"
@@ -69,3 +85,15 @@ PoolAddressesProvider = "0x51b235a5511e7c25A3F610081f096101CCA72F99"
 PoolConfigurator = "0x89b2E004E30F0B41e527C23C3E39cD086A639750"
 WithdrawalManager = "0x402bBecEeac2109Cff1fB358470bC2aa4f90578A"
 name = "wuren"
+
+[hedera-testnet-storq]
+IsleGlobals = "0x075174D8974820c4deb0283b090c8f83E52A9A4f"
+Receivable = "0x17Ac6521b3452f4A623a6ff9874918C1392f4813"
+
+[[hedera-testnet-storq.markets]]
+LoanManager = "0x37A7d1AAd293B16737E3e0E233900634C7f756F8"
+Pool = "0x5953481258f48D94F305276EA9A358feED1be0Ba"
+PoolAddressesProvider = "0xa58bA3d28F812e7833E0d7B606Eb9B00B1363c0e"
+PoolConfigurator = "0x9a269DA83589bbb231Df6A90ccfF2774344D457f"
+WithdrawalManager = "0x9561bE5Bd65DBFB2401B740956dE020c4FaB5eD9"
+name = "storq-sandbox"
